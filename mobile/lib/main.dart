@@ -15,8 +15,10 @@ class UniversalInventoryApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2457C5),
+          seedColor: const Color(0xFF171717),
+          brightness: Brightness.light,
         ),
       ),
       home: const HomeScreen(),
@@ -30,28 +32,44 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Universal Inventory'),
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 72,
+      backgroundColor: const Color(0xFF101010),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'universal_inventory_logo.png',
+                  width: 240,
+                  height: 240,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 28),
+                const Text(
+                  'UNIVERSAL INVENTORY',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'EVERYTHING IN ITS PLACE.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 16),
-            Text(
-              'Welcome to Universal Inventory',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text('Your inventory management starts here.'),
-          ],
+          ),
         ),
       ),
     );
