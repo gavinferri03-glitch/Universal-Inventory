@@ -1,0 +1,31 @@
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: universal_inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: dev_only_change_later
+    volumes:
+      - inventory_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory -d universal_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory:dev_only_change_later@db:5432/universal_inventory
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  inventory_data:
+  
