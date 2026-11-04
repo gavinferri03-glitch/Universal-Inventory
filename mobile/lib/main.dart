@@ -41,7 +41,7 @@ class HomeScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'universal_inventory_logo.png',
+                  ''file_000000002550820b98dbddbb87b2bb92.png',',
                   width: 240,
                   height: 240,
                   fit: BoxFit.contain,
