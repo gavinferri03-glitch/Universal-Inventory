@@ -26,10 +26,14 @@ jobs:
       - name: Generate Android project
         working-directory: mobile
         run: flutter create --platforms=android --project-name universal_inventory .
-        
+
       - name: Install dependencies
         working-directory: mobile
         run: flutter pub get
+
+      - name: Generate app launcher icons
+        working-directory: mobile
+        run: dart run flutter_launcher_icons
 
       - name: Build APK
         working-directory: mobile
@@ -40,4 +44,3 @@ jobs:
         with:
           name: universal-inventory-apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
-          
