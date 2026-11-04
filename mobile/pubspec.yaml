@@ -23,4 +23,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
+  assets:
+    - file_000000002550820b98dbddbb87b2bb92.png
