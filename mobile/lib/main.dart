@@ -1,6 +1,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'dashboard_screen.dart';
 
 void main() {
   runApp(const UniversalInventoryApp());
