@@ -538,7 +538,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           } else {
                             showMessage(
-                              'Login authentication will be connected soon.',
+                              Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const DashboardScreen(),
+  ),
+);
                             );
                           }
                         },
