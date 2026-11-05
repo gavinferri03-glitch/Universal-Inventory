@@ -537,12 +537,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Please enter your email and password.',
                             );
                           } else {
-                            showMessage(
-                              Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const DashboardScreen(),
-  ),
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const DashboardScreen(),
+                              ),
                             );
                           }
                         },
