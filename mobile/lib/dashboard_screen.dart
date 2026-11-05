@@ -1,6 +1,10 @@
 
 import 'package:flutter/material.dart';
+
 import 'products_screen.dart';
+import 'stock_screen.dart';
+import 'warehouse_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,8 +17,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int selectedIndex = 0;
 
   static const Color blue = Color(0xFF5798FF);
-  static const Color panel = Color(0xFF121D2D);
   static const Color muted = Color(0xFF91A4BE);
+
+  void _openPage(int index) {
+    if (index == 0) {
+      setState(() => selectedIndex = 0);
+      return;
+    }
+
+    Widget page;
+
+    switch (index) {
+      case 1:
+        page = const ProductsScreen();
+        break;
+      case 2:
+        page = const StockScreen();
+        break;
+      case 3:
+        page = const WarehouseScreen();
+        break;
+      case 4:
+        page = const SettingsScreen();
+        break;
+      default:
+        return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _message(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$action will be available soon.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () => _openPage(4),
             icon: const Icon(Icons.notifications_none),
           ),
           const SizedBox(width: 8),
@@ -58,6 +98,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 22),
 
               // SUMMARY CARDS
+
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -96,6 +137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 28),
 
               // QUICK ACTIONS
+
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -110,19 +152,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _QuickAction(
                     icon: Icons.add_box_outlined,
                     label: 'Add Product',
-                    onTap: () => _message('Add Product'),
+                    onTap: () => _openPage(1),
                   ),
                   const SizedBox(width: 10),
                   _QuickAction(
                     icon: Icons.call_received,
                     label: 'Stock In',
-                    onTap: () => _message('Stock In'),
+                    onTap: () => _openPage(2),
                   ),
                   const SizedBox(width: 10),
                   _QuickAction(
                     icon: Icons.call_made,
                     label: 'Stock Out',
-                    onTap: () => _message('Stock Out'),
+                    onTap: () => _openPage(2),
                   ),
                 ],
               ),
@@ -130,6 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 28),
 
               // LOW STOCK
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -141,7 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => _message('All low stock items'),
+                    onPressed: () => _openPage(1),
                     child: const Text('View all'),
                   ),
                 ],
@@ -167,6 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 28),
 
               // RECENT ACTIVITY
+
               const Text(
                 'Recent Activity',
                 style: TextStyle(
@@ -205,30 +249,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
 
       // BOTTOM NAVIGATION
+
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
         indicatorColor: blue.withValues(alpha: 0.18),
         selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ProductsScreen(),
-              ),
-            );
-            return;
-          }
-
-          setState(() => selectedIndex = index);
-
-          if (index != 0) {
-            _message(
-              ['Dashboard', 'Products', 'Stock', 'Warehouses', 'Settings']
-                  [index],
-            );
-          }
-        },
+        onDestinationSelected: _openPage,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
@@ -253,12 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _message(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action will be available soon.')),
     );
   }
 }
