@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'products_screen.dart';
 import 'stock_screen.dart';
 import 'settings_screen.dart';
+import 'business_profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
