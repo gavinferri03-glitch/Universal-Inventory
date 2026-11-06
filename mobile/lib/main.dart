@@ -6,10 +6,11 @@ import 'dashboard_screen.dart';
 
 void main() {
   runApp(
-  const ProviderScope(
-    child: UniversalInventoryApp(),
-  ),
-);
+    const ProviderScope(
+      child: UniversalInventoryApp(),
+    ),
+  );
+}
 
 class UniversalInventoryApp extends StatelessWidget {
   const UniversalInventoryApp({super.key});
