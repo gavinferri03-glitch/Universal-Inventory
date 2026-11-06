@@ -26,6 +26,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
 
+  // BOTTOM NAVIGATION
+
   void _openPage(int index) {
     if (index == 0) {
       setState(() => selectedIndex = 0);
@@ -35,7 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() => selectedIndex = index);
 
-    Widget page;
+    Widget? page;
 
     switch (index) {
       case 1:
@@ -50,67 +52,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 4:
         page = const SettingsScreen();
         break;
-      default:
-        return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => page),
-    );
+    if (page != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => page!),
+      );
+    }
   }
 
-  void _comingSoon(String item) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$item will be added soon.')),
-    );
-  }
+  // DRAWER NAVIGATION
 
   void _openMenuPage(String item, int? page) {
-  Navigator.pop(context);
+    Navigator.pop(context);
 
-  if (page != null) {
-    _openPage(page);
-    return;
+    if (page != null) {
+      _openPage(page);
+      return;
+    }
+
+    Widget? destination;
+
+    switch (item) {
+      case 'Business Profile':
+        destination = const BusinessProfileScreen();
+        break;
+
+      case 'Branches':
+        destination = const BranchesScreen();
+        break;
+
+      case 'Users':
+        destination = const UsersScreen();
+        break;
+
+      case 'Categories':
+        destination = const CategoriesScreen();
+        break;
+
+      case 'Allocation':
+        destination = const AllocationScreen();
+        break;
+
+      case 'Suppliers':
+        destination = const SuppliersScreen();
+        break;
+    }
+
+    if (destination != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => destination!),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$item will be added soon.')),
+      );
+    }
   }
 
-  Widget? destination;
-
-  switch (item) {
-    case 'Business Profile':
-      destination = const BusinessProfileScreen();
-      break;
-    case 'Branches':
-      destination = const BranchesScreen();
-      break;
-    case 'Users':
-      destination = const UsersScreen();
-      break;
-    case 'Categories':
-      destination = const CategoriesScreen();
-      break;
-    case 'Allocation':
-      destination = const AllocationScreen();
-      break;
-    case 'Suppliers':
-      destination = const SuppliersScreen();
-      break;
-  }
-
-  if (destination != null) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => destination!),
-    );
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$item will be added soon.')),
-    );
-  }
-}
-
-  Widget _menuTile(String title, Object? icon, int? page) {
+  Widget _menuTile(String title, int? page) {
     return ListTile(
       dense: true,
       leading: const Icon(
@@ -120,7 +122,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white70, fontSize: 13),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 13,
+        ),
       ),
       onTap: () => _openMenuPage(title, page),
     );
@@ -152,6 +157,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // LEFT DRAWER
 
   Widget _buildDrawer() {
     return Drawer(
@@ -217,7 +224,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         SizedBox(height: 3),
                         Text(
                           'Business profile',
-                          style: TextStyle(color: muted, fontSize: 11),
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -237,9 +247,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Company Details',
                     Icons.business_outlined,
                     [
-                      _menuTile('Business Profile', null, null),
-                      _menuTile('Branches', null, null),
-                      _menuTile('Users', null, null),
+                      _menuTile('Business Profile', null),
+                      _menuTile('Branches', null),
+                      _menuTile('Users', null),
                     ],
                   ),
 
@@ -247,10 +257,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Product Master',
                     Icons.inventory_2_outlined,
                     [
-                      _menuTile('Products', 1, 1),
-                      _menuTile('Categories', null, null),
-                      _menuTile('Units', null, null),
-                      _menuTile('Suppliers', null, null),
+                      _menuTile('Products', 1),
+                      _menuTile('Categories', null),
+                      _menuTile('Allocation', null),
+                      _menuTile('Suppliers', null),
                     ],
                   ),
 
@@ -258,10 +268,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Stock',
                     Icons.inventory_outlined,
                     [
-                      _menuTile('Stock In', 2, 2),
-                      _menuTile('Stock Out', 2, 2),
-                      _menuTile('Transfers', null, null),
-                      _menuTile('Adjustments', null, null),
+                      _menuTile('Stock In', 2),
+                      _menuTile('Stock Out', 2),
+                      _menuTile('Transfers', null),
+                      _menuTile('Adjustments', null),
                     ],
                   ),
 
@@ -269,10 +279,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Sales',
                     Icons.shopping_cart_outlined,
                     [
-                      _menuTile('Create Sale', 3, 3),
-                      _menuTile('Sales History', 3, 3),
-                      _menuTile('Customers', null, null),
-                      _menuTile('Returns', null, null),
+                      _menuTile('Create Sale', 3),
+                      _menuTile('Sales History', 3),
+                      _menuTile('Customers', null),
+                      _menuTile('Returns', null),
                     ],
                   ),
 
@@ -280,9 +290,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Help',
                     Icons.help_outline,
                     [
-                      _menuTile('User Guide', null, null),
-                      _menuTile('FAQs', null, null),
-                      _menuTile('Contact Support', null, null),
+                      _menuTile('User Guide', null),
+                      _menuTile('FAQs', null),
+                      _menuTile('Contact Support', null),
                     ],
                   ),
                 ],
@@ -292,7 +302,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Divider(color: Color(0xFF26364D)),
 
             ListTile(
-              leading: const Icon(Icons.settings_outlined, color: muted),
+              leading: const Icon(
+                Icons.settings_outlined,
+                color: muted,
+              ),
               title: const Text(
                 'Settings',
                 style: TextStyle(color: Colors.white),
@@ -306,6 +319,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // SUMMARY CARDS
 
   Widget _summaryCard({
     required String title,
@@ -328,7 +343,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 13),
           Text(
             title,
-            style: const TextStyle(color: muted, fontSize: 11),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -346,12 +364,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(color: muted, fontSize: 10),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 10,
+            ),
           ),
         ],
       ),
     );
   }
+
+  // QUICK ACTIONS
 
   Widget _quickAction({
     required String title,
@@ -414,6 +437,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // SALES AND PURCHASE OVERVIEW
+
   Widget _overviewCard({
     required String title,
     required String period,
@@ -454,13 +479,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Text(
                   period,
-                  style: const TextStyle(color: blue, fontSize: 11),
+                  style: const TextStyle(
+                    color: blue,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 17),
-
           Row(
             children: List.generate(3, (index) {
               return Expanded(
@@ -469,7 +496,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       labels[index],
-                      style: const TextStyle(color: muted, fontSize: 10),
+                      style: const TextStyle(
+                        color: muted,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     FittedBox(
@@ -488,9 +518,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             }),
           ),
-
           const SizedBox(height: 20),
-
           SizedBox(
             height: 125,
             width: double.infinity,
@@ -500,9 +528,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   : _BarChartPainter(chartValues),
             ),
           ),
-
           const SizedBox(height: 8),
-
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -518,6 +544,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // LOW STOCK ALERTS
 
   Widget _stockAlert(String name, String sku, String quantity) {
     return Container(
@@ -548,7 +576,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   sku,
-                  style: const TextStyle(color: muted, fontSize: 11),
+                  style: const TextStyle(
+                    color: muted,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -565,6 +596,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // RECENT ACTIVITY
 
   Widget _activityItem(
     IconData icon,
@@ -602,19 +635,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: muted, fontSize: 11),
+                  style: const TextStyle(
+                    color: muted,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
           ),
           Text(
             time,
-            style: const TextStyle(color: muted, fontSize: 10),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 10,
+            ),
           ),
         ],
       ),
     );
   }
+
+  // MAIN DASHBOARD
 
   @override
   Widget build(BuildContext context) {
@@ -652,7 +693,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               const Text(
                 'Good morning!',
-                style: TextStyle(color: muted, fontSize: 14),
+                style: TextStyle(
+                  color: muted,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 5),
               const Text(
@@ -815,6 +859,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
 
+      // BOTTOM NAVIGATION
+
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
         indicatorColor: blue.withValues(alpha: 0.18),
@@ -885,7 +931,9 @@ class SalesPlaceholderScreen extends StatelessWidget {
               Text(
                 'We will build this section next.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF91A4BE)),
+                style: TextStyle(
+                  color: Color(0xFF91A4BE),
+                ),
               ),
             ],
           ),
@@ -895,7 +943,7 @@ class SalesPlaceholderScreen extends StatelessWidget {
   }
 }
 
-// SIMPLE SALES LINE CHART
+// SALES LINE CHART
 
 class _LineChartPainter extends CustomPainter {
   final List<double> values;
@@ -910,7 +958,11 @@ class _LineChartPainter extends CustomPainter {
 
     for (int i = 0; i < 4; i++) {
       final y = size.height * i / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
     }
 
     if (values.length < 2) return;
@@ -926,6 +978,7 @@ class _LineChartPainter extends CustomPainter {
       final y = size.height -
           ((values[i] - minValue) / range * size.height * 0.8) -
           size.height * 0.1;
+
       points.add(Offset(x, y));
     }
 
@@ -935,7 +988,8 @@ class _LineChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    final path = Path()
+      ..moveTo(points.first.dx, points.first.dy);
 
     for (int i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
@@ -953,10 +1007,12 @@ class _LineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LineChartPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.values != values;
+  }
 }
 
-// SIMPLE PURCHASE BAR CHART
+// PURCHASE BAR CHART
 
 class _BarChartPainter extends CustomPainter {
   final List<double> values;
@@ -971,12 +1027,19 @@ class _BarChartPainter extends CustomPainter {
 
     for (int i = 0; i < 4; i++) {
       final y = size.height * i / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
     }
 
     if (values.isEmpty) return;
 
     final maxValue = values.reduce((a, b) => a > b ? a : b);
+
+    if (maxValue <= 0) return;
+
     final barWidth = size.width / (values.length * 1.7);
 
     final barPaint = Paint()
@@ -1002,5 +1065,7 @@ class _BarChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BarChartPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
+    return oldDelegate.values != values;
+  }
 }
