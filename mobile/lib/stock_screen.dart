@@ -1,74 +1,243 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'inventory_data.dart';
 
-class StockScreen extends StatefulWidget {
+class StockScreen extends ConsumerStatefulWidget {
   const StockScreen({super.key});
 
   @override
-  State<StockScreen> createState() => _StockScreenState();
+  ConsumerState<StockScreen> createState() => _StockScreenState();
 }
 
-class _StockScreenState extends State<StockScreen> {
+class _StockScreenState extends ConsumerState<StockScreen> {
   static const Color blue = Color(0xFF5798FF);
   static const Color green = Color(0xFF45C99A);
   static const Color orange = Color(0xFFFFB454);
 
   String selectedFilter = 'All';
 
-  final List<String> products = [
-    'Wireless Mouse',
-    'USB Keyboard',
-    'HDMI Cable',
-    'Bluetooth Speaker',
-  ];
+  String formatDate(DateTime date) {
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
 
-  final List<_StockMovement> movements = [
-    _StockMovement(
-      product: 'Wireless Mouse',
-      type: 'Stock In',
-      quantity: 20,
-      date: 'Today, 10:30 AM',
-    ),
-    _StockMovement(
-      product: 'USB Keyboard',
-      type: 'Stock Out',
-      quantity: 5,
-      date: 'Today, 09:45 AM',
-    ),
-    _StockMovement(
-      product: 'HDMI Cable',
-      type: 'Stock In',
-      quantity: 15,
-      date: 'Yesterday',
-    ),
-    _StockMovement(
-      product: 'Bluetooth Speaker',
-      type: 'Stock Out',
-      quantity: 3,
-      date: 'Yesterday',
-    ),
-  ];
+    return '${date.day}/${date.month}/${date.year}  $hour:$minute $period';
+  }
 
-  int get totalReceived => movements
-      .where((item) => item.type == 'Stock In')
-      .fold(0, (sum, item) => sum + item.quantity);
+  Future<void> _addMovement(String type) async {
+    final inventory = ref.read(inventoryProvider);
+    final products = inventory.products;
 
-  int get totalIssued => movements
-      .where((item) => item.type == 'Stock Out')
-      .fold(0, (sum, item) => sum + item.quantity);
-
-  List<_StockMovement> get filteredMovements {
-    if (selectedFilter == 'All') {
-      return movements;
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add a product before recording stock.'),
+        ),
+      );
+      return;
     }
 
-    return movements
-        .where((item) => item.type == selectedFilter)
-        .toList();
+    final quantityController = TextEditingController();
+    String selectedProductId = products.first.id;
+
+    final movement = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, dialogSetState) {
+            final selectedProduct =
+                products.firstWhere(
+              (product) => product.id == selectedProductId,
+            );
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121D2D),
+              title: Text(
+                type,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select Product',
+                      style: TextStyle(color: Color(0xFF91A4BE)),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: selectedProductId,
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF121D2D),
+                      decoration: _inputDecoration(),
+                      items: products.map((product) {
+                        return DropdownMenuItem(
+                          value: product.id,
+                          child: Text(
+                            '${product.name} (${product.quantity} units)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          dialogSetState(() {
+                            selectedProductId = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Current quantity: ${selectedProduct.quantity}',
+                      style: const TextStyle(
+                        color: Color(0xFF91A4BE),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Quantity',
+                      style: TextStyle(color: Color(0xFF91A4BE)),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: quantityController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration(
+                        hint: 'Enter quantity',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: type == 'Stock In' ? green : orange,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () {
+                    final quantity = int.tryParse(
+                      quantityController.text.trim(),
+                    );
+
+                    if (quantity == null || quantity <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please enter a valid quantity.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      inventory.recordStockMovement(
+                        productId: selectedProductId,
+                        type: type,
+                        quantity: quantity,
+                      );
+
+                      Navigator.pop(dialogContext, true);
+                    } catch (error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst(
+                              'Exception: ',
+                              '',
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Save Movement'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    quantityController.dispose();
+
+    if (!mounted || movement != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$type recorded successfully.'),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({String? hint}) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF71849E)),
+      filled: true,
+      fillColor: const Color(0xFF080B12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF26364D)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF26364D)),
+      ),
+    );
+  }
+
+  void _showInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF121D2D),
+        title: const Text('Stock Management'),
+        content: const Text(
+          'Record incoming and outgoing stock movements. '
+          'Every movement updates the shared product quantity '
+          'and appears in the movement history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final inventory = ref.watch(inventoryProvider);
+    final movements = inventory.movements;
+
+    final totalReceived = movements
+        .where((item) => item.type == 'Stock In')
+        .fold<int>(0, (sum, item) => sum + item.quantity);
+
+    final totalIssued = movements
+        .where((item) => item.type == 'Stock Out')
+        .fold<int>(0, (sum, item) => sum + item.quantity);
+
+    final filteredMovements = selectedFilter == 'All'
+        ? movements
+        : movements
+            .where((item) => item.type == selectedFilter)
+            .toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
       appBar: AppBar(
@@ -79,7 +248,7 @@ class _StockScreenState extends State<StockScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () => _showInfo(),
+            onPressed: _showInfo,
             icon: const Icon(Icons.info_outline),
           ),
           const SizedBox(width: 8),
@@ -106,10 +275,7 @@ class _StockScreenState extends State<StockScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 22),
-
-              // STOCK SUMMARY
 
               Row(
                 children: [
@@ -132,9 +298,7 @@ class _StockScreenState extends State<StockScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
-
               _SummaryCard(
                 title: 'Net Movement',
                 value: (totalReceived - totalIssued).toString(),
@@ -144,8 +308,6 @@ class _StockScreenState extends State<StockScreen> {
               ),
 
               const SizedBox(height: 28),
-
-              // STOCK ACTIONS
 
               const Text(
                 'Stock Actions',
@@ -182,7 +344,74 @@ class _StockScreenState extends State<StockScreen> {
 
               const SizedBox(height: 30),
 
-              // MOVEMENT HISTORY
+              const Text(
+                'Current Product Quantities',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              if (inventory.products.isEmpty)
+                const Text(
+                  'No products have been added yet.',
+                  style: TextStyle(color: Color(0xFF91A4BE)),
+                )
+              else
+                ...inventory.products.map(
+                  (product) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF121D2D),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF26364D),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          color: blue,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                product.sku,
+                                style: const TextStyle(
+                                  color: Color(0xFF91A4BE),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${product.quantity} units',
+                          style: TextStyle(
+                            color: product.quantity <= 5
+                                ? orange
+                                : green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 22),
 
               const Text(
                 'Movement History',
@@ -239,6 +468,7 @@ class _StockScreenState extends State<StockScreen> {
                 ...filteredMovements.map(
                   (movement) => _MovementCard(
                     movement: movement,
+                    dateText: formatDate(movement.date),
                   ),
                 ),
 
@@ -249,183 +479,6 @@ class _StockScreenState extends State<StockScreen> {
       ),
     );
   }
-
-  Future<void> _addMovement(String type) async {
-    final quantityController = TextEditingController();
-    String selectedProduct = products.first;
-
-    final movement = await showDialog<_StockMovement>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, dialogSetState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF121D2D),
-              title: Text(
-                type,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select Product',
-                    style: TextStyle(color: Color(0xFF91A4BE)),
-                  ),
-                  const SizedBox(height: 8),
-
-                  DropdownButtonFormField<String>(
-                    value: selectedProduct,
-                    dropdownColor: const Color(0xFF121D2D),
-                    decoration: _inputDecoration(),
-                    items: products.map((product) {
-                      return DropdownMenuItem(
-                        value: product,
-                        child: Text(product),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        dialogSetState(() {
-                          selectedProduct = value;
-                        });
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  const Text(
-                    'Quantity',
-                    style: TextStyle(color: Color(0xFF91A4BE)),
-                  ),
-                  const SizedBox(height: 8),
-
-                  TextField(
-                    controller: quantityController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration(
-                      hint: 'Enter quantity',
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        type == 'Stock In' ? green : orange,
-                    foregroundColor: Colors.black,
-                  ),
-                  onPressed: () {
-                    final quantity =
-                        int.tryParse(quantityController.text.trim());
-
-                    if (quantity == null || quantity <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter a valid quantity.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    Navigator.pop(
-                      dialogContext,
-                      _StockMovement(
-                        product: selectedProduct,
-                        type: type,
-                        quantity: quantity,
-                        date: 'Just now',
-                      ),
-                    );
-                  },
-                  child: const Text('Save Movement'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    quantityController.dispose();
-
-    if (!mounted || movement == null) return;
-
-    setState(() {
-      movements.insert(0, movement);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$type recorded successfully.'),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({String? hint}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF71849E)),
-      filled: true,
-      fillColor: const Color(0xFF080B12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF26364D)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF26364D)),
-      ),
-    );
-  }
-
-  void _showInfo() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF121D2D),
-        title: const Text('Stock Management'),
-        content: const Text(
-          'Record incoming and outgoing stock movements '
-          'and review your movement history.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StockMovement {
-  const _StockMovement({
-    required this.product,
-    required this.type,
-    required this.quantity,
-    required this.date,
-  });
-
-  final String product;
-  final String type;
-  final int quantity;
-  final String date;
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -542,9 +595,11 @@ class _ActionButton extends StatelessWidget {
 class _MovementCard extends StatelessWidget {
   const _MovementCard({
     required this.movement,
+    required this.dateText,
   });
 
-  final _StockMovement movement;
+  final StockMovement movement;
+  final String dateText;
 
   @override
   Widget build(BuildContext context) {
@@ -571,9 +626,7 @@ class _MovementCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              isStockIn
-                  ? Icons.call_received
-                  : Icons.call_made,
+              isStockIn ? Icons.call_received : Icons.call_made,
               color: color,
             ),
           ),
@@ -583,14 +636,12 @@ class _MovementCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  movement.product,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  movement.productName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  movement.date,
+                  dateText,
                   style: const TextStyle(
                     color: Color(0xFF91A4BE),
                     fontSize: 11,
@@ -613,10 +664,7 @@ class _MovementCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 movement.type,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: color, fontSize: 10),
               ),
             ],
           ),
