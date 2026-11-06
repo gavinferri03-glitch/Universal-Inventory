@@ -5,6 +5,11 @@ import 'products_screen.dart';
 import 'stock_screen.dart';
 import 'settings_screen.dart';
 import 'business_profile_screen.dart';
+import 'branches_screen.dart';
+import 'users_screen.dart';
+import 'categories_screen.dart';
+import 'allocation_screen.dart';
+import 'suppliers_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
