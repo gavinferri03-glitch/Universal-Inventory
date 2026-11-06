@@ -63,16 +63,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _openMenuPage(String item, int? page) {
-    Navigator.pop(context);
+  Navigator.pop(context);
 
-    if (page != null) {
-      _openPage(page);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$item will be added soon.')),
-      );
-    }
+  if (page != null) {
+    _openPage(page);
+  } else if (item == 'Business Profile') {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BusinessProfileScreen(),
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$item will be added soon.')),
+    );
   }
+}
 
   Widget _menuTile(String title, Object? icon, int? page) {
     return ListTile(
