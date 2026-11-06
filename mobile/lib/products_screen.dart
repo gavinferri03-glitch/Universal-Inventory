@@ -1,14 +1,16 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'inventory_data.dart';
 
-class ProductsScreen extends StatefulWidget {
+class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
   @override
-  State<ProductsScreen> createState() => _ProductsScreenState();
+  ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
 }
 
-class _ProductsScreenState extends State<ProductsScreen> {
+class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   final TextEditingController searchController = TextEditingController();
 
   String selectedCategory = 'All';
@@ -21,56 +23,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
     'Other',
   ];
 
-  final List<Map<String, dynamic>> products = [
-    {
-      'name': 'Wireless Mouse',
-      'sku': 'ELE-001',
-      'category': 'Electronics',
-      'price': 850.0,
-      'quantity': 20,
-    },
-    {
-      'name': 'USB Keyboard',
-      'sku': 'ACC-002',
-      'category': 'Accessories',
-      'price': 1200.0,
-      'quantity': 8,
-    },
-    {
-      'name': 'HDMI Cable',
-      'sku': 'ACC-003',
-      'category': 'Accessories',
-      'price': 450.0,
-      'quantity': 5,
-    },
-    {
-      'name': 'Bluetooth Speaker',
-      'sku': 'ELE-004',
-      'category': 'Electronics',
-      'price': 2500.0,
-      'quantity': 35,
-    },
-  ];
-
-  List<Map<String, dynamic>> get filteredProducts {
-    return products.where((product) {
-      final query = searchController.text.toLowerCase();
-
-      final matchesSearch =
-          product['name'].toString().toLowerCase().contains(query) ||
-          product['sku'].toString().toLowerCase().contains(query);
-
-      final matchesCategory = selectedCategory == 'All' ||
-          product['category'] == selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    }).toList();
-  }
-
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  List<InventoryProduct> getFilteredProducts(
+    List<InventoryProduct> products,
+  ) {
+    final query = searchController.text.toLowerCase();
+
+    return products.where((product) {
+      final matchesSearch =
+          product.name.toLowerCase().contains(query) ||
+          product.sku.toLowerCase().contains(query);
+
+      final matchesCategory = selectedCategory == 'All' ||
+          product.category == selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    }).toList();
   }
 
   void addProduct() {
@@ -145,9 +118,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   onPressed: () {
                     final name = nameController.text.trim();
                     final sku = skuController.text.trim();
-                    final price = double.tryParse(priceController.text);
-                    final quantity =
-                        int.tryParse(quantityController.text);
+                    final price = double.tryParse(
+                      priceController.text.trim(),
+                    );
+                    final quantity = int.tryParse(
+                      quantityController.text.trim(),
+                    );
 
                     if (name.isEmpty ||
                         sku.isEmpty ||
@@ -157,23 +133,42 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         quantity < 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please enter valid product details.'),
+                          content: Text(
+                            'Please enter valid product details.',
+                          ),
                         ),
                       );
                       return;
                     }
 
-                    setState(() {
-                      products.add({
-                        'name': name,
-                        'sku': sku,
-                        'category': category,
-                        'price': price,
-                        'quantity': quantity,
-                      });
-                    });
+                    try {
+                      ref.read(inventoryProvider).addProduct(
+                            name: name,
+                            sku: sku,
+                            category: category,
+                            sellingPrice: price,
+                            openingQuantity: quantity,
+                          );
 
-                    Navigator.pop(dialogContext);
+                      Navigator.pop(dialogContext);
+
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Product added successfully.'),
+                        ),
+                      );
+                    } catch (error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst(
+                                  'Exception: ',
+                                  '',
+                                ),
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Save Product'),
                 ),
@@ -212,7 +207,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleProducts = filteredProducts;
+    final inventory = ref.watch(inventoryProvider);
+    final visibleProducts = getFilteredProducts(inventory.products);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1421),
@@ -256,7 +252,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ),
             ),
-
             SizedBox(
               height: 45,
               child: ListView.separated(
@@ -285,7 +280,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 },
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
@@ -309,7 +303,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ],
               ),
             ),
-
             Expanded(
               child: visibleProducts.isEmpty
                   ? const Center(
@@ -323,7 +316,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       itemCount: visibleProducts.length,
                       itemBuilder: (context, index) {
                         final product = visibleProducts[index];
-                        final quantity = product['quantity'] as int;
+                        final quantity = product.quantity;
                         final lowStock = quantity <= 10;
 
                         return Container(
@@ -354,10 +347,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      product['name'].toString(),
+                                      product.name,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
@@ -366,7 +360,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     ),
                                     const SizedBox(height: 5),
                                     Text(
-                                      '${product['sku']} • ${product['category']}',
+                                      '${product.sku} • ${product.category}',
                                       style: const TextStyle(
                                         color: Colors.white54,
                                         fontSize: 11,
@@ -374,7 +368,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Rs. ${product['price']}',
+                                      'Rs. ${product.sellingPrice.toStringAsFixed(2)}',
                                       style: const TextStyle(
                                         color: Color(0xFF78AEFF),
                                         fontWeight: FontWeight.bold,
