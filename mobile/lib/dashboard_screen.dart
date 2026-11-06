@@ -72,12 +72,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   if (page != null) {
     _openPage(page);
-  } else if (item == 'Business Profile') {
+    return;
+  }
+
+  Widget? destination;
+
+  switch (item) {
+    case 'Business Profile':
+      destination = const BusinessProfileScreen();
+      break;
+    case 'Branches':
+      destination = const BranchesScreen();
+      break;
+    case 'Users':
+      destination = const UsersScreen();
+      break;
+    case 'Categories':
+      destination = const CategoriesScreen();
+      break;
+    case 'Allocation':
+      destination = const AllocationScreen();
+      break;
+    case 'Suppliers':
+      destination = const SuppliersScreen();
+      break;
+  }
+
+  if (destination != null) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const BusinessProfileScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => destination!),
     );
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
