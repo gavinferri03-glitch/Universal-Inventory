@@ -73,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _menuTile(String title, IconData icon, int? page) {
+  Widget _menuTile(String title, Object? icon, int? page) {
     return ListTile(
       dense: true,
       leading: const Icon(
