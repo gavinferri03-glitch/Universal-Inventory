@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dashboard_screen.dart';
 
 void main() {
-  runApp(const UniversalInventoryApp());
-}
+  runApp(
+  const ProviderScope(
+    child: UniversalInventoryApp(),
+  ),
+);
 
 class UniversalInventoryApp extends StatelessWidget {
   const UniversalInventoryApp({super.key});
