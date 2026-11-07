@@ -5,15 +5,15 @@ extension InventoryBranches on InventoryData {
     return _branches.where((branch) => branch.active).length;
   }
 
-  void addBranch(
-    String name,
-    String code,
-    String city,
-    String address,
-    String phone,
-    String email,
-    String manager,
-  ) {
+  void addBranch({
+    required String name,
+    required String code,
+    required String city,
+    required String address,
+    required String phone,
+    required String email,
+    required String manager,
+  }) {
     final cleanName = name.trim();
     final cleanCode = code.trim();
 
