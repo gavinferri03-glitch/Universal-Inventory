@@ -21,6 +21,7 @@ import 'help_screen.dart';
 import 'transfer_screen.dart';
 import 'customers_screen.dart';
 import 'sales_history_screen.dart';
+import 'stock_movement_screens.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -68,7 +69,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _companyName = savedName == null || savedName.trim().isEmpty
             ? 'Your Company'
             : savedName.trim();
-
         _companyLogoPath = validLogo;
       });
     } catch (e) {
@@ -88,11 +88,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openPage(int index) async {
     if (index == 0) {
       Navigator.popUntil(context, (route) => route.isFirst);
-
-      if (mounted) {
-        setState(() => selectedIndex = 0);
-      }
-
+      if (mounted) setState(() => selectedIndex = 0);
       return;
     }
 
@@ -122,9 +118,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       MaterialPageRoute(builder: (_) => page!),
     );
 
-    if (mounted) {
-      setState(() => selectedIndex = 0);
-    }
+    if (mounted) setState(() => selectedIndex = 0);
   }
 
   Future<void> _openDestination(Widget destination) async {
@@ -142,13 +136,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openMenuPage(String item, int? page) async {
     Navigator.pop(context);
 
-    // Open the dedicated Sales History screen.
     if (item == 'Sales History') {
       await _openDestination(const SalesHistoryScreen());
       return;
     }
 
-    // Open the dedicated Customers screen.
+    if (item == 'Stock In') {
+      await _openDestination(const StockInScreen());
+      return;
+    }
+
+    if (item == 'Stock Out') {
+      await _openDestination(const StockOutScreen());
+      return;
+    }
+
     if (item == 'Customers') {
       await _openDestination(const CustomersScreen());
       return;
@@ -163,40 +165,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 'Business Profile':
         await _openDestination(const BusinessProfileScreen());
         break;
-
       case 'Branches':
         await _openDestination(const BranchesScreen());
         break;
-
       case 'Users':
         await _openDestination(const UsersScreen());
         break;
-
       case 'Categories':
         await _openDestination(const CategoriesScreen());
         break;
-
       case 'Allocation':
         await _openDestination(const AllocationScreen());
         break;
-
       case 'Suppliers':
         await _openDestination(const SuppliersScreen());
         break;
-
       case 'Transfers':
         await _openDestination(const TransferScreen());
         break;
-
       case 'Help':
         await _openDestination(const HelpScreen());
         break;
-
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$item will be added soon.'),
-          ),
+          SnackBar(content: Text('$item will be added soon.')),
         );
     }
   }
@@ -286,7 +278,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
 
-            // Company name and logo
             InkWell(
               onTap: () => _openMenuPage('Business Profile', null),
               borderRadius: BorderRadius.circular(12),
@@ -348,10 +339,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ],
                       ),
                     ),
-                    const Icon(
-                      Icons.chevron_right,
-                      color: muted,
-                    ),
+                    const Icon(Icons.chevron_right, color: muted),
                   ],
                 ),
               ),
@@ -372,7 +360,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Users', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Product Master',
                     Icons.inventory_2_outlined,
@@ -383,17 +370,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Suppliers', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Stock',
                     Icons.inventory_outlined,
                     [
-                      _menuTile('Stock In', 2),
-                      _menuTile('Stock Out', 2),
+                      _menuTile('Stock In', null),
+                      _menuTile('Stock Out', null),
                       _menuTile('Transfers', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Sales',
                     Icons.shopping_cart_outlined,
@@ -404,7 +389,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Returns', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Reports',
                     Icons.analytics_outlined,
@@ -437,7 +421,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Tax Summary Report', null),
                     ],
                   ),
-
                   ListTile(
                     leading: const Icon(
                       Icons.help_outline,
@@ -458,7 +441,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
 
             const Divider(color: Color(0xFF26364D)),
-
             ListTile(
               leading: const Icon(
                 Icons.settings_outlined,
@@ -470,7 +452,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onTap: () => _openMenuPage('Settings', 4),
             ),
-
             const SizedBox(height: 8),
           ],
         ),
@@ -499,10 +480,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 13),
           Text(
             title,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: muted, fontSize: 11),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -520,10 +498,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: muted, fontSize: 10),
           ),
         ],
       ),
@@ -611,7 +586,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -629,9 +603,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -648,9 +620,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -682,10 +652,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: orange,
-          ),
+          const Icon(Icons.warning_amber_rounded, color: orange),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -701,10 +668,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   product.sku,
-                  style: const TextStyle(
-                    color: muted,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: muted, fontSize: 11),
                 ),
               ],
             ),
@@ -791,10 +755,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           Text(
             time,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: muted, fontSize: 10),
           ),
         ],
       ),
@@ -817,7 +778,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       backgroundColor: background,
       drawer: _buildDrawer(),
-
       appBar: AppBar(
         backgroundColor: background,
         elevation: 0,
@@ -880,7 +840,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -900,9 +859,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 22),
-
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -942,12 +899,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 28),
-
               _sectionTitle('Quick Actions'),
               const SizedBox(height: 13),
-
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -966,13 +920,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     title: 'Stock In',
                     icon: Icons.call_received,
                     color: green,
-                    onTap: () => _openPage(2),
+                    onTap: () =>
+                        _openDestination(const StockInScreen()),
                   ),
                   _quickAction(
                     title: 'Stock Out',
                     icon: Icons.call_made,
                     color: orange,
-                    onTap: () => _openPage(2),
+                    onTap: () =>
+                        _openDestination(const StockOutScreen()),
                   ),
                   _quickAction(
                     title: 'Create Sale',
@@ -982,13 +938,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 28),
-
               _salesOverview(inventory),
-
               const SizedBox(height: 28),
-
               _sectionTitle(
                 'Low Stock Alerts',
                 trailing: TextButton(
@@ -996,9 +948,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: const Text('View products'),
                 ),
               ),
-
               const SizedBox(height: 8),
-
               if (lowStockProducts.isEmpty)
                 Container(
                   width: double.infinity,
@@ -1014,12 +964,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 )
               else
                 ...lowStockProducts.take(5).map(_stockAlert),
-
               const SizedBox(height: 20),
-
               _sectionTitle('Recent Activity'),
               const SizedBox(height: 16),
-
               if (recentMovements.isEmpty)
                 const Text(
                   'No stock activity recorded yet.',
@@ -1029,13 +976,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ...recentMovements.map(
                   (movement) => _activityItem(movement, inventory),
                 ),
-
               const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
         indicatorColor: blue.withValues(alpha: 0.18),
