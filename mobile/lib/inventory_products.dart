@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryProducts on InventoryData {
+mixin InventoryProducts on InventoryData {
   // ==========================================================
   // PRODUCT MANAGEMENT
   // ==========================================================
