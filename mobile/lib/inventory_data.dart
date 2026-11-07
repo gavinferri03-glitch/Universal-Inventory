@@ -240,6 +240,7 @@ class InventoryData extends ChangeNotifier {
       id: '4',
       name: 'Bluetooth Speaker',
       sku: 'ELE-004',
+      category: 'Electronics',
       sellingPrice: 2500,
       costPrice: 1800,
       quantity: 35,
@@ -386,6 +387,35 @@ class InventoryData extends ChangeNotifier {
   }
 
   // ==========================================================
+  // AUTOMATIC STOCK ALERTS
+  // ==========================================================
+
+  void _checkStockAlerts(
+    InventoryProduct product,
+    int previousQuantity,
+  ) {
+    if (previousQuantity > 0 && product.quantity == 0) {
+      notificationCenter.add(
+        title: 'Out of Stock',
+        message: '${product.name} is now out of stock.',
+        category: NotificationCategory.inventory,
+        relatedId: product.id,
+        action: 'product',
+      );
+    } else if (previousQuantity > product.minimumStock &&
+        product.quantity <= product.minimumStock) {
+      notificationCenter.add(
+        title: 'Low Stock',
+        message:
+            '${product.name} has only ${product.quantity} ${product.unit} remaining.',
+        category: NotificationCategory.inventory,
+        relatedId: product.id,
+        action: 'product',
+      );
+    }
+  }
+
+  // ==========================================================
   // PRODUCT MANAGEMENT
   // ==========================================================
 
@@ -474,7 +504,9 @@ class InventoryData extends ChangeNotifier {
     final product = findProduct(productId);
 
     if (product == null) throw Exception('Product not found.');
-    if (findBranch(branchId) == null) throw Exception('Branch not found.');
+
+    final branch = findBranch(branchId);
+    if (branch == null) throw Exception('Branch not found.');
 
     product.branchQuantities[branchId] =
         (product.branchQuantities[branchId] ?? 0) + quantity;
@@ -491,6 +523,15 @@ class InventoryData extends ChangeNotifier {
         date: DateTime.now(),
         branchId: branchId,
       ),
+    );
+
+    notificationCenter.add(
+      title: 'Stock In',
+      message:
+          '$quantity ${product.unit} of ${product.name} allocated to ${branch.name}.',
+      category: NotificationCategory.stock,
+      relatedId: product.id,
+      action: 'stock',
     );
 
     notifyListeners();
@@ -518,8 +559,10 @@ class InventoryData extends ChangeNotifier {
 
     if (product == null) throw Exception('Product not found.');
 
-    if (findBranch(fromBranchId) == null ||
-        findBranch(toBranchId) == null) {
+    final fromBranch = findBranch(fromBranchId);
+    final toBranch = findBranch(toBranchId);
+
+    if (fromBranch == null || toBranch == null) {
       throw Exception('Branch not found.');
     }
 
@@ -555,6 +598,15 @@ class InventoryData extends ChangeNotifier {
       ),
     ]);
 
+    notificationCenter.add(
+      title: 'Branch Transfer',
+      message:
+          '$quantity ${product.unit} of ${product.name} transferred from ${fromBranch.name} to ${toBranch.name}.',
+      category: NotificationCategory.stock,
+      relatedId: product.id,
+      action: 'stock',
+    );
+
     notifyListeners();
   }
 
@@ -575,13 +627,16 @@ class InventoryData extends ChangeNotifier {
     final product = findProduct(productId);
 
     if (product == null) throw Exception('Product not found.');
-    if (findBranch(branchId) == null) throw Exception('Branch not found.');
+
+    final branch = findBranch(branchId);
+    if (branch == null) throw Exception('Branch not found.');
 
     if (type != 'Stock In' && type != 'Stock Out') {
       throw Exception('Invalid stock movement type.');
     }
 
     final branchStock = product.branchQuantities[branchId] ?? 0;
+    final previousQuantity = product.quantity;
 
     if (type == 'Stock Out' && branchStock < quantity) {
       throw Exception('Not enough stock available at this branch.');
@@ -606,6 +661,17 @@ class InventoryData extends ChangeNotifier {
         branchId: branchId,
       ),
     );
+
+    notificationCenter.add(
+      title: type,
+      message:
+          '$quantity ${product.unit} of ${product.name} recorded at ${branch.name}.',
+      category: NotificationCategory.stock,
+      relatedId: product.id,
+      action: 'stock',
+    );
+
+    _checkStockAlerts(product, previousQuantity);
 
     notifyListeners();
   }
@@ -710,11 +776,11 @@ class InventoryData extends ChangeNotifier {
       date: DateTime.now(),
     );
 
-    // Deduct stock once per product, even if it appears
-    // more than once in the cart.
+    // Deduct stock once per product.
     for (final entry in requiredQuantities.entries) {
       final product = findProduct(entry.key)!;
       final quantity = entry.value;
+      final previousQuantity = product.quantity;
 
       product.branchQuantities[branchId] =
           (product.branchQuantities[branchId] ?? 0) - quantity;
@@ -732,9 +798,42 @@ class InventoryData extends ChangeNotifier {
           branchId: branchId,
         ),
       );
+
+      notificationCenter.add(
+        title: 'Stock Out',
+        message:
+            '$quantity ${product.unit} of ${product.name} sold at ${branch.name}.',
+        category: NotificationCategory.stock,
+        relatedId: product.id,
+        action: 'stock',
+      );
+
+      _checkStockAlerts(product, previousQuantity);
     }
 
     _sales.insert(0, sale);
+
+    // New sale notification.
+    notificationCenter.add(
+      title: 'New Sale',
+      message:
+          'Sale ${sale.invoiceNumber} completed at ${branch.name}. Total: ${sale.total.toStringAsFixed(2)}.',
+      category: NotificationCategory.sales,
+      relatedId: sale.invoiceNumber,
+      action: 'sale',
+    );
+
+    // Pending payment notification.
+    if (sale.balanceDue > 0) {
+      notificationCenter.add(
+        title: 'Payment Due',
+        message:
+            'Payment of ${sale.balanceDue.toStringAsFixed(2)} is pending for invoice ${sale.invoiceNumber}.',
+        category: NotificationCategory.sales,
+        relatedId: sale.invoiceNumber,
+        action: 'sale',
+      );
+    }
 
     notifyListeners();
 
