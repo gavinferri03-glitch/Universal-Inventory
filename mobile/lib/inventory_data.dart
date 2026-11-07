@@ -10,6 +10,8 @@ import 'inventory_storage.dart';
 import 'notifications_data.dart';
 import 'code_generator.dart';
 
+part 'inventory_products.dart';
+
 
 // ============================================================
 // INVENTORY DATA
