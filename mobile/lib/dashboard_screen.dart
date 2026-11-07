@@ -1,6 +1,9 @@
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'inventory_data.dart';
 import 'notification_screen.dart';
@@ -28,6 +31,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int selectedIndex = 0;
 
+  String _companyName = 'Your Company';
+  String? _companyLogoPath;
+
   static const Color background = Color(0xFF080B12);
   static const Color cardColor = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
@@ -35,6 +41,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const Color green = Color(0xFF45C99A);
   static const Color orange = Color(0xFFFFB454);
   static const Color purple = Color(0xFFB28AFF);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyIdentity();
+  }
+
+  Future<void> _loadCompanyIdentity() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('company_name');
+      final savedLogo = prefs.getString('company_logo_path');
+
+      String? validLogo;
+
+      if (savedLogo != null && await File(savedLogo).exists()) {
+        validLogo = savedLogo;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _companyName = savedName == null || savedName.trim().isEmpty
+            ? 'Your Company'
+            : savedName.trim();
+
+        _companyLogoPath = validLogo;
+      });
+    } catch (e) {
+      debugPrint('Could not load company identity: $e');
+    }
+  }
 
   Future<void> _openNotifications() async {
     await Navigator.push(
@@ -48,9 +86,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openPage(int index) async {
     if (index == 0) {
       Navigator.popUntil(context, (route) => route.isFirst);
+
       if (mounted) {
         setState(() => selectedIndex = 0);
       }
+
       return;
     }
 
@@ -93,6 +133,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     if (mounted) {
       setState(() => selectedIndex = 0);
+      await _loadCompanyIdentity();
     }
   }
 
@@ -229,41 +270,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
 
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 14),
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1D293A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.business, color: blue, size: 27),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your Company',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Business profile',
-                          style: TextStyle(
-                            color: muted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+            // Company name and logo
+            InkWell(
+              onTap: () => _openMenuPage('Business Profile', null),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1D293A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF263B5B),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _companyLogoPath != null
+                          ? Image.file(
+                              File(_companyLogoPath!),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.business,
+                                color: blue,
+                                size: 27,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.business,
+                              color: blue,
+                              size: 27,
+                            ),
                     ),
-                  ),
-                  Icon(Icons.chevron_right, color: muted),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _companyName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Business profile',
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: muted,
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -315,7 +389,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
 
-                  // Help is now a single direct menu item.
                   ListTile(
                     leading: const Icon(
                       Icons.help_outline,
