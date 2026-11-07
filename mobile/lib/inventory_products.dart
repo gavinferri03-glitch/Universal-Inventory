@@ -1,10 +1,6 @@
 part of 'inventory_data.dart';
 
 extension InventoryProducts on InventoryData {
-  // ==========================================================
-  // ADD PRODUCT
-  // ==========================================================
-
   void addProduct({
     required String name,
     required String sku,
@@ -58,9 +54,7 @@ extension InventoryProducts on InventoryData {
       minimumStock: minimumStock,
       supplier: supplier.trim(),
       quantity: openingQuantity,
-      branchQuantities: {
-        initialBranchId: openingQuantity,
-      },
+      branchQuantities: {initialBranchId: openingQuantity},
     );
 
     _products.add(product);
@@ -77,10 +71,6 @@ extension InventoryProducts on InventoryData {
     notifyListeners();
   }
 
-  // ==========================================================
-  // UPDATE PRODUCT
-  // ==========================================================
-
   void updateProduct({
     required String productId,
     required String name,
@@ -93,11 +83,15 @@ extension InventoryProducts on InventoryData {
     required int minimumStock,
     required String supplier,
   }) {
-    final product = getProductById(productId);
+    final index = _products.indexWhere(
+      (item) => item.id == productId,
+    );
 
-    if (product == null) {
+    if (index == -1) {
       throw Exception('Product not found.');
     }
+
+    final oldProduct = _products[index];
 
     if (name.trim().isEmpty) {
       throw Exception('Product name is required.');
@@ -115,22 +109,26 @@ extension InventoryProducts on InventoryData {
       throw Exception('This barcode is already in use.');
     }
 
-    product.name = name.trim();
-    product.category = category.trim();
-    product.costPrice = costPrice;
-    product.sellingPrice = sellingPrice;
-    product.barcode = barcode.trim();
-    product.description = description.trim();
-    product.unit = unit;
-    product.minimumStock = minimumStock;
-    product.supplier = supplier.trim();
+    _products[index] = InventoryProduct(
+      id: oldProduct.id,
+      name: name.trim(),
+      sku: oldProduct.sku,
+      category: category.trim(),
+      barcode: barcode.trim(),
+      description: description.trim(),
+      costPrice: costPrice,
+      sellingPrice: sellingPrice,
+      unit: unit,
+      minimumStock: minimumStock,
+      supplier: supplier.trim(),
+      quantity: oldProduct.quantity,
+      branchQuantities: Map<String, int>.from(
+        oldProduct.branchQuantities,
+      ),
+    );
 
     notifyListeners();
   }
-
-  // ==========================================================
-  // DELETE PRODUCT
-  // ==========================================================
 
   void deleteProduct(String productId) {
     if (getProductById(productId) == null) {
@@ -138,7 +136,6 @@ extension InventoryProducts on InventoryData {
     }
 
     _products.removeWhere((item) => item.id == productId);
-
     notifyListeners();
   }
 }
