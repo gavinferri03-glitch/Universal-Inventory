@@ -1,4 +1,3 @@
-
 part of 'inventory_data.dart';
 
 extension InventoryHelpers on InventoryData {
@@ -13,14 +12,6 @@ extension InventoryHelpers on InventoryData {
   InventoryProduct? findProduct(String productId) {
     return getProductById(productId);
   }
-
-  // ==========================================================
-  // DASHBOARD TOTALS
-  // ==========================================================
-
-  double get totalSalesToday => todaySales;
-
-  int get salesCountToday => todaySalesCount;
 
   // ==========================================================
   // STOCK SUMMARY
