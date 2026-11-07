@@ -1388,11 +1388,9 @@ SaleRecord createSale({
   double tax = 0,
   double amountPaid = 0,
 }) {
-  final branch = _branches.where(
-    (branch) => branch.id == branchId && branch.active,
-  ).firstOrNull;
+  final branch = findBranch(branchId);
 
-  if (branch == null) {
+  if (branch == null || !branch.active) {
     throw Exception('Please select a valid active branch.');
   }
 
@@ -1404,7 +1402,6 @@ SaleRecord createSale({
     throw Exception('Discount, tax and payment cannot be negative.');
   }
 
-  // Validate all requested quantities before changing any stock.
   final requestedQuantities = <String, int>{};
 
   for (final item in items) {
@@ -1423,12 +1420,11 @@ SaleRecord createSale({
       throw Exception('A selected product no longer exists.');
     }
 
-    final availableQuantity =
-        product.branchQuantities[branchId] ?? 0;
+    final available = product.branchQuantities[branchId] ?? 0;
 
-    if (availableQuantity < entry.value) {
+    if (available < entry.value) {
       throw Exception(
-        'Insufficient stock for ${product.name}. Available: $availableQuantity.',
+        'Insufficient stock for ${product.name}. Available: $available.',
       );
     }
   }
@@ -1445,14 +1441,14 @@ SaleRecord createSale({
         sku: product.sku,
         quantity: item.quantity,
         unitPrice: product.sellingPrice,
-        total: product.sellingPrice * item.quantity,
+        costPrice: product.costPrice,
       ),
     );
   }
 
   final subtotal = saleLines.fold<double>(
     0,
-    (total, line) => total + line.total,
+    (sum, item) => sum + item.total,
   );
 
   if (discount > subtotal) {
@@ -1468,23 +1464,20 @@ SaleRecord createSale({
   final saleDate = DateTime.now();
 
   final sale = SaleRecord(
-    id: saleDate.microsecondsSinceEpoch.toString(),
     invoiceNumber: generateInvoiceCode(),
     branchId: branchId,
     customerName: customerName.trim(),
     customerPhone: customerPhone.trim(),
+    paymentMethod: paymentMethod,
     items: saleLines,
     subtotal: subtotal,
     discount: discount,
     tax: tax,
     total: total,
     amountPaid: amountPaid,
-    balanceDue: total - amountPaid,
-    paymentMethod: paymentMethod,
     date: saleDate,
   );
 
-  // Deduct stock only after every item has passed validation.
   for (final entry in requestedQuantities.entries) {
     final productIndex = _products.indexWhere(
       (product) => product.id == entry.key,
@@ -1539,7 +1532,7 @@ SaleRecord createSale({
     message: 'Invoice ${sale.invoiceNumber} created successfully.',
     category: NotificationCategory.sales,
     action: 'sale',
-    relatedId: sale.id,
+    relatedId: sale.invoiceNumber,
   );
 
   if (sale.balanceDue > 0) {
@@ -1549,7 +1542,7 @@ SaleRecord createSale({
           'An outstanding balance of ${sale.balanceDue.toStringAsFixed(2)} remains.',
       category: NotificationCategory.sales,
       action: 'sale',
-      relatedId: sale.id,
+      relatedId: sale.invoiceNumber,
     );
   }
 
