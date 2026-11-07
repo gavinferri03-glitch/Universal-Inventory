@@ -1,6 +1,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'code_generator.dart';
+
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
@@ -13,13 +15,34 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   final Color panel = const Color(0xFF121D2D);
   final Color muted = const Color(0xFF91A4BE);
 
-  final TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController =
+      TextEditingController();
 
   final List<Map<String, dynamic>> categories = [
-    {'name': 'Electronics', 'code': 'CAT-001', 'description': 'Electronic devices and equipment', 'active': true},
-    {'name': 'Accessories', 'code': 'CAT-002', 'description': 'Computer and mobile accessories', 'active': true},
-    {'name': 'Furniture', 'code': 'CAT-003', 'description': 'Office and home furniture', 'active': true},
-    {'name': 'Other', 'code': 'CAT-004', 'description': 'Miscellaneous products', 'active': true},
+    {
+      'name': 'Electronics',
+      'code': 'CAT-001',
+      'description': 'Electronic devices and equipment',
+      'active': true,
+    },
+    {
+      'name': 'Accessories',
+      'code': 'CAT-002',
+      'description': 'Computer and mobile accessories',
+      'active': true,
+    },
+    {
+      'name': 'Furniture',
+      'code': 'CAT-003',
+      'description': 'Office and home furniture',
+      'active': true,
+    },
+    {
+      'name': 'Other',
+      'code': 'CAT-004',
+      'description': 'Miscellaneous products',
+      'active': true,
+    },
   ];
 
   String searchText = '';
@@ -28,8 +51,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return categories.where((category) {
       final name = category['name'].toString().toLowerCase();
       final code = category['code'].toString().toLowerCase();
-      return name.contains(searchText.toLowerCase()) ||
-          code.contains(searchText.toLowerCase());
+      final search = searchText.toLowerCase();
+
+      return name.contains(search) || code.contains(search);
     }).toList();
   }
 
@@ -40,13 +64,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   void showCategoryDialog({int? index}) {
-    final isEditing = index != null;
+    final bool isEditing = index != null;
+
     final nameController = TextEditingController(
       text: isEditing ? categories[index]['name'] : '',
     );
+
     final codeController = TextEditingController(
-      text: isEditing ? categories[index]['code'] : '',
+      text: isEditing
+          ? categories[index]['code']
+          : CodeGenerator.next(
+              prefix: 'CAT',
+              existingCodes: categories.map(
+                (category) => category['code'].toString(),
+              ),
+            ),
     );
+
     final descriptionController = TextEditingController(
       text: isEditing ? categories[index]['description'] : '',
     );
@@ -64,9 +98,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _field(nameController, 'Category Name *'),
+                _field(
+                  nameController,
+                  'Category Name *',
+                ),
                 const SizedBox(height: 12),
-                _field(codeController, 'Category Code *'),
+                _field(
+                  codeController,
+                  'Category Code (Auto-generated)',
+                  readOnly: true,
+                ),
                 const SizedBox(height: 12),
                 _field(
                   descriptionController,
@@ -78,8 +119,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Cancel', style: TextStyle(color: muted)),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: muted),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -89,12 +135,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               onPressed: () {
                 final name = nameController.text.trim();
                 final code = codeController.text.trim();
-                final description = descriptionController.text.trim();
+                final description =
+                    descriptionController.text.trim();
 
-                if (name.isEmpty || code.isEmpty) {
+                if (name.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Name and code are required.'),
+                      content: Text('Category name is required.'),
                     ),
                   );
                   return;
@@ -102,15 +149,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
                 final duplicate = categories.indexWhere(
                   (category) =>
-                      category['code'].toString().toLowerCase() ==
-                          code.toLowerCase() &&
-                      (!isEditing || categories[index] != category),
+                      category['code']
+                          .toString()
+                          .toLowerCase() ==
+                      code.toLowerCase() &&
+                      (!isEditing ||
+                          categories[index] != category),
                 );
 
                 if (duplicate != -1) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('This category code already exists.'),
+                      content: Text(
+                        'This category code already exists.',
+                      ),
                     ),
                   );
                   return;
@@ -135,6 +187,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 });
 
                 Navigator.pop(dialogContext);
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -157,10 +210,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     TextEditingController controller,
     String label, {
     int maxLines = 1,
+    bool readOnly = false,
   }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      readOnly: readOnly,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
@@ -172,7 +227,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: muted.withOpacity(0.25)),
+          borderSide: BorderSide(
+            color: muted.withOpacity(0.25),
+          ),
         ),
       ),
     );
@@ -193,15 +250,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              setState(() => categories.removeAt(index));
+              setState(() {
+                categories.removeAt(index);
+              });
+
               Navigator.pop(dialogContext);
+
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Category deleted.')),
+                const SnackBar(
+                  content: Text('Category deleted.'),
+                ),
               );
             },
             child: const Text(
@@ -214,7 +279,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  Widget _summaryCard(String title, int value, IconData icon) {
+  Widget _summaryCard(
+    String title,
+    int value,
+    IconData icon,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -225,7 +294,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: blue, size: 22),
+            Icon(
+              icon,
+              color: blue,
+              size: 22,
+            ),
             const SizedBox(height: 10),
             Text(
               value.toString(),
@@ -237,7 +310,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
             Text(
               title,
-              style: TextStyle(color: muted, fontSize: 12),
+              style: TextStyle(
+                color: muted,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -247,8 +323,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeCount =
-        categories.where((category) => category['active'] == true).length;
+    final activeCount = categories
+        .where((category) => category['active'] == true)
+        .length;
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
@@ -287,13 +364,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             TextField(
               controller: searchController,
               onChanged: (value) {
-                setState(() => searchText = value);
+                setState(() {
+                  searchText = value;
+                });
               },
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Search categories...',
                 hintStyle: TextStyle(color: muted),
-                prefixIcon: Icon(Icons.search, color: muted),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: muted,
+                ),
                 filled: true,
                 fillColor: panel,
                 border: OutlineInputBorder(
@@ -314,27 +396,37 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   : ListView.builder(
                       itemCount: filteredCategories.length,
                       itemBuilder: (context, index) {
-                        final category = filteredCategories[index];
-                        final originalIndex = categories.indexOf(category);
-                        final isActive = category['active'] == true;
+                        final category =
+                            filteredCategories[index];
+
+                        final originalIndex =
+                            categories.indexOf(category);
+
+                        final isActive =
+                            category['active'] == true;
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(
+                            bottom: 12,
+                          ),
                           padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
                             color: panel,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(11),
+                                    padding:
+                                        const EdgeInsets.all(11),
                                     decoration: BoxDecoration(
                                       color: blue.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius:
+                                          BorderRadius.circular(10),
                                     ),
                                     child: Icon(
                                       Icons.category_outlined,
@@ -348,16 +440,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          category['name'],
+                                          category['name'].toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                                            fontWeight:
+                                                FontWeight.bold,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          category['code'],
+                                          category['code'].toString(),
                                           style: TextStyle(
                                             color: muted,
                                             fontSize: 12,
@@ -379,11 +472,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         );
                                       } else if (value == 'toggle') {
                                         setState(() {
-                                          categories[originalIndex]['active'] =
+                                          categories[originalIndex]
+                                                  ['active'] =
                                               !isActive;
                                         });
                                       } else if (value == 'delete') {
-                                        deleteCategory(originalIndex);
+                                        deleteCategory(
+                                          originalIndex,
+                                        );
                                       }
                                     },
                                     itemBuilder: (context) => [
@@ -425,7 +521,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                   .isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 Text(
-                                  category['description'],
+                                  category['description'].toString(),
                                   style: TextStyle(
                                     color: muted,
                                     fontSize: 13,
@@ -436,7 +532,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding:
+                                      const EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 5,
                                   ),
@@ -444,7 +541,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                     color: isActive
                                         ? Colors.green.withOpacity(0.15)
                                         : Colors.red.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius:
+                                        BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     isActive ? 'Active' : 'Inactive',
