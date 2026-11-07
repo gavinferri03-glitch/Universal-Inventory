@@ -1,667 +1,933 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'inventory_data.dart';
-import 'list_tools.dart';
 
-class StockScreen extends ConsumerStatefulWidget {
+import 'inventory_data.dart';
+import 'inventory_models.dart';
+import 'inventory_purchase_data.dart';
+import 'inventory_purchase_provider.dart';
+import 'inventory_invoice_pdf.dart';
+
+class StockScreen extends ConsumerWidget {
   const StockScreen({super.key});
 
-  @override
-  ConsumerState<StockScreen> createState() => _StockScreenState();
-}
-
-class _StockScreenState extends ConsumerState<StockScreen> {
   static const Color blue = Color(0xFF5798FF);
   static const Color green = Color(0xFF45C99A);
   static const Color orange = Color(0xFFFFB454);
   static const Color panel = Color(0xFF121D2D);
   static const Color muted = Color(0xFF91A4BE);
 
-  final TextEditingController movementSearchController =
-      TextEditingController();
-  final TextEditingController productSearchController =
-      TextEditingController();
-
-  String movementSearch = '';
-  String productSearch = '';
-  String selectedFilter = 'All';
-  String movementSort = 'newest';
-  String productSort = 'name_az';
-
-  final Map<String, String> movementSortOptions = {
-    'newest': 'Newest first',
-    'oldest': 'Oldest first',
-    'quantity_high': 'Highest quantity',
-    'quantity_low': 'Lowest quantity',
-    'product_az': 'Product A–Z',
-    'product_za': 'Product Z–A',
-  };
-
-  final Map<String, String> movementFilterOptions = {
-    'All': 'All movements',
-    'Stock In': 'Stock In',
-    'Stock Out': 'Stock Out',
-    'Transfers': 'Transfers',
-  };
-
-  final Map<String, String> productSortOptions = {
-    'name_az': 'Product name A–Z',
-    'name_za': 'Product name Z–A',
-    'stock_high': 'Highest stock first',
-    'stock_low': 'Lowest stock first',
-  };
-
-  final Map<String, String> productFilterOptions = {
-    'all': 'All products',
-    'in_stock': 'In-stock products',
-    'out_stock': 'Out-of-stock products',
-  };
-
-  String productFilter = 'all';
-
-  @override
-  void dispose() {
-    movementSearchController.dispose();
-    productSearchController.dispose();
-    super.dispose();
-  }
-
-  String formatDate(DateTime date) {
-    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${date.day}/${date.month}/${date.year}  $hour:$minute $period';
-  }
-
-  InputDecoration decoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: muted),
-      filled: true,
-      fillColor: const Color(0xFF080B12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+  void _message(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
-  Future<void> addMovement(String type) async {
+  Future<void> _purchase(BuildContext context, WidgetRef ref) async {
     final inventory = ref.read(inventoryProvider);
-    final products = inventory.products;
+    final data = ref.read(inventoryPurchaseProvider);
     final branches = inventory.branches.where((b) => b.active).toList();
 
-    if (products.isEmpty || branches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a product and active branch first.'),
-        ),
-      );
+    if (inventory.products.isEmpty || branches.isEmpty) {
+      _message(context, 'Add products and an active branch first.');
       return;
     }
 
-    final quantityController = TextEditingController();
-    String productId = products.first.id;
+    final supplier = TextEditingController();
+    final phone = TextEditingController();
+    final address = TextEditingController();
+    final supplierInvoice = TextEditingController();
+    final discount = TextEditingController(text: '0');
+    final tax = TextEditingController(text: '0');
+    final paid = TextEditingController(text: '0');
+    final notes = TextEditingController();
+
     String branchId = branches.first.id;
+    String paymentMethod = 'Cash';
 
-    final saved = await showDialog<bool>(
+    final lines = <_PurchaseLineInput>[
+      _PurchaseLineInput(inventory.products.first.id),
+    ];
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, refresh) {
-            final product = products.firstWhere((p) => p.id == productId);
-            final branchStock =
-                inventory.getBranchQuantity(productId, branchId);
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) {
+          InputDecoration field(String label) => InputDecoration(
+            labelText: label,
+            filled: true,
+            fillColor: const Color(0xFF080B12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          );
 
-            return AlertDialog(
-              backgroundColor: panel,
-              title: Text(type, style: const TextStyle(color: Colors.white)),
-              content: SingleChildScrollView(
+          Widget textField(
+            TextEditingController controller,
+            String label, {
+            bool number = false,
+          }) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: TextField(
+                controller: controller,
+                keyboardType: number
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.text,
+                decoration: field(label),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: panel,
+            title: const Text(
+              'New Purchase Order',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    DropdownButtonFormField<String>(
-                      value: productId,
-                      isExpanded: true,
-                      dropdownColor: panel,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: decoration('Product'),
-                      items: products.map((p) {
-                        return DropdownMenuItem(
-                          value: p.id,
-                          child: Text('${p.name} (${p.sku})'),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          refresh(() => productId = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 14),
+                    textField(supplier, 'Supplier name *'),
+                    textField(phone, 'Supplier phone'),
+                    textField(address, 'Supplier address'),
+                    textField(supplierInvoice, 'Supplier invoice number (optional)'),
                     DropdownButtonFormField<String>(
                       value: branchId,
                       isExpanded: true,
                       dropdownColor: panel,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: decoration('Branch'),
-                      items: branches.map((b) {
-                        return DropdownMenuItem(
-                          value: b.id,
-                          child: Text(b.name),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          refresh(() => branchId = value);
-                        }
+                      decoration: field('Receiving branch'),
+                      items: branches.map((b) => DropdownMenuItem(
+                        value: b.id,
+                        child: Text(b.name),
+                      )).toList(),
+                      onChanged: (v) {
+                        if (v != null) refresh(() => branchId = v);
                       },
                     ),
-                    const SizedBox(height: 10),
-                    Align(
+                    const SizedBox(height: 18),
+                    const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Available at this branch: $branchStock ${product.unit}',
-                        style: const TextStyle(color: muted, fontSize: 12),
+                        'Products',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: quantityController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: decoration('Quantity'),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: type == 'Stock In' ? green : orange,
-                    foregroundColor: Colors.black,
-                  ),
-                  onPressed: () {
-                    final quantity =
-                        int.tryParse(quantityController.text.trim());
+                    const SizedBox(height: 8),
+                    ...lines.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final line = entry.value;
+                      final product = inventory.products.firstWhere(
+                        (p) => p.id == line.productId,
+                      );
 
-                    if (quantity == null || quantity <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Enter a valid quantity.'),
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF080B12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      inventory.recordStockMovement(
-                        productId: productId,
-                        type: type,
-                        quantity: quantity,
-                        branchId: branchId,
-                      );
-                      Navigator.pop(dialogContext, true);
-                    } catch (error) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            error.toString().replaceFirst('Exception: ', ''),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save Movement'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    quantityController.dispose();
-
-    if (!mounted || saved != true) return;
-
-    ScaffoldMessenger.of(this.context).showSnackBar(
-      SnackBar(content: Text('$type recorded successfully.')),
-    );
-  }
-
-  Widget summaryCard(
-    String title,
-    int value,
-    Color color, {
-    bool wide = false,
-  }) {
-    return Container(
-      width: wide ? double.infinity : null,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF26364D)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.inventory_2_outlined, color: color, size: 25),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(title, style: const TextStyle(color: muted, fontSize: 12)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget actionButton(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: panel,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF26364D)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 27),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: const TextStyle(color: muted, fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final inventory = ref.watch(inventoryProvider);
-    final movements = inventory.movements;
-
-    final totalReceived = movements
-        .where((m) => m.type == 'Stock In')
-        .fold<int>(0, (sum, m) => sum + m.quantity);
-
-    final totalIssued = movements
-        .where((m) => m.type == 'Stock Out')
-        .fold<int>(0, (sum, m) => sum + m.quantity);
-
-    final visibleProducts = inventory.products.where((product) {
-      final query = productSearch.trim().toLowerCase();
-
-      final matchesSearch = query.isEmpty ||
-          product.name.toLowerCase().contains(query) ||
-          product.sku.toLowerCase().contains(query);
-
-      final quantity = product.quantity;
-      final matchesFilter = productFilter == 'all' ||
-          (productFilter == 'in_stock' && quantity > 0) ||
-          (productFilter == 'out_stock' && quantity <= 0);
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-
-    switch (productSort) {
-      case 'name_az':
-        visibleProducts.sort((a, b) => a.name.toLowerCase().compareTo(
-              b.name.toLowerCase(),
-            ));
-        break;
-      case 'name_za':
-        visibleProducts.sort((a, b) => b.name.toLowerCase().compareTo(
-              a.name.toLowerCase(),
-            ));
-        break;
-      case 'stock_high':
-        visibleProducts.sort((a, b) => b.quantity.compareTo(a.quantity));
-        break;
-      case 'stock_low':
-        visibleProducts.sort((a, b) => a.quantity.compareTo(b.quantity));
-        break;
-    }
-
-    final visibleMovements = movements.where((movement) {
-      final branch = inventory.findBranch(movement.branchId);
-      final query = movementSearch.trim().toLowerCase();
-
-      final matchesSearch = query.isEmpty ||
-          movement.productName.toLowerCase().contains(query) ||
-          movement.type.toLowerCase().contains(query) ||
-          (branch?.name.toLowerCase().contains(query) ?? false);
-
-      final matchesFilter = selectedFilter == 'All' ||
-          (selectedFilter == 'Transfers'
-              ? movement.type.startsWith('Transfer')
-              : movement.type == selectedFilter);
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-
-    switch (movementSort) {
-      case 'newest':
-        visibleMovements.sort((a, b) => b.date.compareTo(a.date));
-        break;
-      case 'oldest':
-        visibleMovements.sort((a, b) => a.date.compareTo(b.date));
-        break;
-      case 'quantity_high':
-        visibleMovements.sort((a, b) => b.quantity.compareTo(a.quantity));
-        break;
-      case 'quantity_low':
-        visibleMovements.sort((a, b) => a.quantity.compareTo(b.quantity));
-        break;
-      case 'product_az':
-        visibleMovements.sort((a, b) =>
-            a.productName.toLowerCase().compareTo(
-                  b.productName.toLowerCase(),
-                ));
-        break;
-      case 'product_za':
-        visibleMovements.sort((a, b) =>
-            b.productName.toLowerCase().compareTo(
-                  a.productName.toLowerCase(),
-                ));
-        break;
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B12),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF080B12),
-        title: const Text('Stock Management'),
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const Text(
-              'Stock Overview',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: summaryCard('Stock In', totalReceived, green),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: summaryCard('Stock Out', totalIssued, orange),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            summaryCard(
-              'Total Current Stock',
-              inventory.totalStock,
-              blue,
-              wide: true,
-            ),
-            const SizedBox(height: 26),
-            const Text(
-              'Stock Actions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: actionButton(
-                    'Stock In',
-                    'Receive products',
-                    Icons.add_circle_outline,
-                    green,
-                    () => addMovement('Stock In'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: actionButton(
-                    'Stock Out',
-                    'Issue products',
-                    Icons.remove_circle_outline,
-                    orange,
-                    () => addMovement('Stock Out'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 26),
-            const Text(
-              'Branch-wise Stock',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            InventoryListToolbar(
-              searchController: productSearchController,
-              searchHint: 'Search products by name or SKU...',
-              onSearchChanged: (value) {
-                setState(() => productSearch = value);
-              },
-              sortOptions: productSortOptions,
-              selectedSort: productSort,
-              onSortChanged: (value) {
-                setState(() => productSort = value);
-              },
-              filterOptions: productFilterOptions,
-              selectedFilter: productFilter,
-              onFilterChanged: (value) {
-                setState(() => productFilter = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            if (visibleProducts.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: Text(
-                    'No products found.',
-                    style: TextStyle(color: muted),
-                  ),
-                ),
-              ),
-            ...visibleProducts.map((product) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: panel,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: const Color(0xFF26364D)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      '${product.sku} • Total: ${product.quantity} ${product.unit}',
-                      style: const TextStyle(color: muted, fontSize: 12),
-                    ),
-                    const Divider(color: Colors.white12, height: 22),
-                    ...inventory.branches.map((branch) {
-                      final quantity = inventory.getBranchQuantity(
-                        product.id,
-                        branch.id,
-                      );
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
+                        child: Column(
                           children: [
-                            Expanded(
-                              child: Text(
-                                branch.name,
-                                style: const TextStyle(color: Colors.white70),
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: line.productId,
+                                    isExpanded: true,
+                                    dropdownColor: panel,
+                                    decoration: field('Product'),
+                                    items: inventory.products.map((p) =>
+                                      DropdownMenuItem(
+                                        value: p.id,
+                                        child: Text(p.name),
+                                      ),
+                                    ).toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        refresh(() => line.productId = v);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: lines.length == 1
+                                      ? null
+                                      : () => refresh(() => lines.removeAt(index)),
+                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '$quantity ${product.unit}',
-                              style: TextStyle(
-                                color: quantity > 0 ? green : muted,
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: line.quantity,
+                                    keyboardType: TextInputType.number,
+                                    decoration: field('Quantity'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: line.cost,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: field('Unit cost'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Unit: ${product.unit}  •  SKU: ${product.sku}',
+                                style: const TextStyle(color: muted, fontSize: 11),
                               ),
                             ),
                           ],
                         ),
                       );
                     }),
+                    TextButton.icon(
+                      onPressed: () => refresh(() {
+                        lines.add(_PurchaseLineInput(inventory.products.first.id));
+                      }),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add another product'),
+                    ),
+                    const Divider(color: Colors.white24),
+                    textField(discount, 'Discount amount', number: true),
+                    textField(tax, 'Tax amount', number: true),
+                    textField(paid, 'Amount paid', number: true),
+                    DropdownButtonFormField<String>(
+                      value: paymentMethod,
+                      dropdownColor: panel,
+                      decoration: field('Payment method'),
+                      items: ['Cash', 'Bank Transfer', 'Card', 'Credit', 'Other']
+                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) refresh(() => paymentMethod = v);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    textField(notes, 'Notes'),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Purchase order number is generated automatically.',
+                        style: TextStyle(color: green, fontSize: 12),
+                      ),
+                    ),
                   ],
-                ),
-              );
-            }),
-            const SizedBox(height: 18),
-            const Text(
-              'Movement History',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            InventoryListToolbar(
-              searchController: movementSearchController,
-              searchHint: 'Search product, branch or movement...',
-              onSearchChanged: (value) {
-                setState(() => movementSearch = value);
-              },
-              sortOptions: movementSortOptions,
-              selectedSort: movementSort,
-              onSortChanged: (value) {
-                setState(() => movementSort = value);
-              },
-              filterOptions: movementFilterOptions,
-              selectedFilter: selectedFilter,
-              onFilterChanged: (value) {
-                setState(() => selectedFilter = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            if (visibleMovements.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: Text(
-                    'No movements found.',
-                    style: TextStyle(color: muted),
-                  ),
                 ),
               ),
-            ...visibleMovements.map((movement) {
-              final branch = inventory.findBranch(movement.branchId);
-              final isIn = movement.type == 'Stock In';
-              final isTransfer = movement.type.startsWith('Transfer');
-              final color = isIn
-                  ? green
-                  : isTransfer
-                      ? blue
-                      : orange;
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final purchaseLines = lines.map((line) {
+                      final product = inventory.getProductById(line.productId)!;
+                      return PurchaseOrderLine(
+                        productId: product.id,
+                        productName: product.name,
+                        sku: product.sku,
+                        unit: product.unit,
+                        quantity: int.parse(line.quantity.text.trim()),
+                        unitCost: double.parse(line.cost.text.trim()),
+                      );
+                    }).toList();
 
-              final isPositive =
-                  isIn || movement.type == 'Transfer In';
+                    await data.createPurchaseOrder(
+                      inventory: inventory,
+                      supplierName: supplier.text,
+                      supplierPhone: phone.text,
+                      supplierAddress: address.text,
+                      supplierInvoiceNumber: supplierInvoice.text,
+                      branchId: branchId,
+                      items: purchaseLines,
+                      discount: double.parse(discount.text),
+                      tax: double.parse(tax.text),
+                      amountPaid: double.parse(paid.text),
+                      paymentMethod: paymentMethod,
+                      notes: notes.text,
+                    );
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 9),
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color: panel,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext, true);
+                    }
+                  } catch (e) {
+                    _message(context, e.toString().replaceFirst('Exception: ', ''));
+                  }
+                },
+                child: const Text('Save Purchase'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    supplier.dispose();
+    phone.dispose();
+    address.dispose();
+    supplierInvoice.dispose();
+    discount.dispose();
+    tax.dispose();
+    paid.dispose();
+    notes.dispose();
+    for (final line in lines) {
+      line.dispose();
+    }
+
+    if (result == true && context.mounted) {
+      _message(context, 'Purchase saved and stock received.');
+    }
+  }
+
+  Future<void> _supplierReturn(BuildContext context, WidgetRef ref) async {
+    final inventory = ref.read(inventoryProvider);
+    final data = ref.read(inventoryPurchaseProvider);
+
+    if (data.purchaseOrders.isEmpty) {
+      _message(context, 'Create a purchase order before recording a supplier return.');
+      return;
+    }
+
+    PurchaseOrderRecord selected = data.purchaseOrders.first;
+    final reason = TextEditingController();
+    final notes = TextEditingController();
+    String settlement = 'Supplier Credit';
+    final quantities = <String, TextEditingController>{};
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) {
+          final returned = data.supplierReturns
+              .where((r) => r.originalPurchaseOrderNumber == selected.purchaseOrderNumber)
+              .expand((r) => r.items)
+              .fold<Map<String, int>>({}, (map, item) {
+                map[item.productId] = (map[item.productId] ?? 0) + item.quantity;
+                return map;
+              });
+
+          final uniqueItems = <String, PurchaseOrderLine>{};
+          for (final item in selected.items) {
+            uniqueItems[item.productId] = item;
+          }
+
+          return AlertDialog(
+            backgroundColor: panel,
+            title: const Text('Supplier Return', style: TextStyle(color: Colors.white)),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isIn
-                          ? Icons.call_received
-                          : isTransfer
-                              ? Icons.swap_horiz
-                              : Icons.call_made,
-                      color: color,
+                    DropdownButtonFormField<String>(
+                      value: selected.purchaseOrderNumber,
+                      isExpanded: true,
+                      dropdownColor: panel,
+                      decoration: const InputDecoration(
+                        labelText: 'Original purchase',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: data.purchaseOrders.map((p) =>
+                        DropdownMenuItem(
+                          value: p.purchaseOrderNumber,
+                          child: Text('${p.purchaseOrderNumber} • ${p.supplierName}'),
+                        ),
+                      ).toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          refresh(() {
+                            selected = data.purchaseOrders.firstWhere(
+                              (p) => p.purchaseOrderNumber == v,
+                            );
+                          });
+                        }
+                      },
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            movement.productName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '${movement.type} • ${branch?.name ?? "Unknown branch"}',
-                            style: const TextStyle(
-                              color: muted,
-                              fontSize: 11,
-                            ),
-                          ),
-                          Text(
-                            formatDate(movement.date),
-                            style: const TextStyle(
-                              color: muted,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Supplier: ${selected.supplierName}\nBranch: ${inventory.getBranchById(selected.branchId)?.name ?? selected.branchId}',
+                        style: const TextStyle(color: muted),
                       ),
                     ),
-                    Text(
-                      '${isPositive ? "+" : "-"}${movement.quantity}',
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    const SizedBox(height: 12),
+                    ...uniqueItems.values.map((item) {
+                      final product = inventory.getProductById(item.productId);
+                      final already = returned[item.productId] ?? 0;
+                      final remaining = item.quantity - already;
+                      final controller = quantities.putIfAbsent(
+                        item.productId,
+                        () => TextEditingController(),
+                      );
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF080B12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.productName, style: const TextStyle(color: Colors.white)),
+                            Text(
+                              'Purchased: ${item.quantity}  •  Already returned: $already  •  Remaining: $remaining',
+                              style: const TextStyle(color: muted, fontSize: 11),
+                            ),
+                            TextField(
+                              controller: controller,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Quantity to return (leave blank to skip)',
+                              ),
+                            ),
+                            Text(
+                              'Current branch stock: ${inventory.getBranchQuantity(item.productId, selected.branchId)} ${product?.unit ?? item.unit}',
+                              style: const TextStyle(color: muted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    TextField(
+                      controller: reason,
+                      decoration: const InputDecoration(
+                        labelText: 'Reason for return *',
+                        border: OutlineInputBorder(),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: settlement,
+                      decoration: const InputDecoration(
+                        labelText: 'Settlement',
+                        border: OutlineInputBorder(),
+                      ),
+                      dropdownColor: panel,
+                      items: ['Supplier Credit', 'Refund', 'Replacement']
+                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) refresh(() => settlement = v);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: notes,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Supplier return number is generated automatically.',
+                      style: TextStyle(color: green, fontSize: 12),
                     ),
                   ],
                 ),
-              );
-            }),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final items = <SupplierReturnLine>[];
+                    for (final item in uniqueItems.values) {
+                      final quantity = int.tryParse(
+                        quantities[item.productId]?.text.trim() ?? '',
+                      ) ?? 0;
+                      if (quantity <= 0) continue;
+
+                      items.add(SupplierReturnLine(
+                        productId: item.productId,
+                        productName: item.productName,
+                        sku: item.sku,
+                        unit: item.unit,
+                        quantity: quantity,
+                        unitCost: item.unitCost,
+                      ));
+                    }
+
+                    await data.createSupplierReturn(
+                      inventory: inventory,
+                      originalPurchaseOrderNumber: selected.purchaseOrderNumber,
+                      items: items,
+                      reason: reason.text,
+                      settlementType: settlement,
+                      notes: notes.text,
+                    );
+
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext, true);
+                    }
+                  } catch (e) {
+                    _message(context, e.toString().replaceFirst('Exception: ', ''));
+                  }
+                },
+                child: const Text('Save Return'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    reason.dispose();
+    notes.dispose();
+    for (final controller in quantities.values) {
+      controller.dispose();
+    }
+
+    if (result == true && context.mounted) {
+      _message(context, 'Supplier return saved and stock updated.');
+    }
+  }
+
+  Future<void> _adjust(BuildContext context, WidgetRef ref) async {
+    final inventory = ref.read(inventoryProvider);
+    if (inventory.products.isEmpty || inventory.branches.isEmpty) {
+      _message(context, 'Add a product and branch first.');
+      return;
+    }
+
+    final quantity = TextEditingController();
+    final reason = TextEditingController();
+    String productId = inventory.products.first.id;
+    String branchId = inventory.branches.first.id;
+    String direction = 'Add';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          backgroundColor: panel,
+          title: const Text('Manual Stock Adjustment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: productId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Product'),
+                  items: inventory.products.map((p) => DropdownMenuItem(
+                    value: p.id,
+                    child: Text(p.name),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) refresh(() => productId = v);
+                  },
+                ),
+                DropdownButtonFormField<String>(
+                  value: branchId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Branch'),
+                  items: inventory.branches.map((b) => DropdownMenuItem(
+                    value: b.id,
+                    child: Text(b.name),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) refresh(() => branchId = v);
+                  },
+                ),
+                DropdownButtonFormField<String>(
+                  value: direction,
+                  decoration: const InputDecoration(labelText: 'Adjustment type'),
+                  items: ['Add', 'Remove'].map((v) => DropdownMenuItem(
+                    value: v,
+                    child: Text(v),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) refresh(() => direction = v);
+                  },
+                ),
+                TextField(
+                  controller: quantity,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Quantity'),
+                ),
+                TextField(
+                  controller: reason,
+                  decoration: const InputDecoration(labelText: 'Reason'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                try {
+                  final amount = int.parse(quantity.text.trim());
+                  if (amount <= 0 || reason.text.trim().isEmpty) {
+                    throw Exception('Enter a quantity and reason.');
+                  }
+                  inventory.adjustStock(
+                    productId: productId,
+                    branchId: branchId,
+                    quantity: direction == 'Add' ? amount : -amount,
+                    reason: reason.text.trim(),
+                  );
+                  Navigator.pop(dialogContext, true);
+                } catch (e) {
+                  _message(context, e.toString().replaceFirst('Exception: ', ''));
+                }
+              },
+              child: const Text('Save Adjustment'),
+            ),
           ],
         ),
       ),
     );
+
+    quantity.dispose();
+    reason.dispose();
+
+    if (saved == true && context.mounted) {
+      _message(context, 'Stock adjustment saved.');
+    }
+  }
+
+  Future<void> _purchaseDetails(
+    BuildContext context,
+    PurchaseOrderRecord order,
+    InventoryData inventory,
+  ) async {
+    final branch = inventory.getBranchById(order.branchId)?.name ?? order.branchId;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: panel,
+        title: Text(order.purchaseOrderNumber),
+        content: SizedBox(
+          width: 450,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Supplier: ${order.supplierName}'),
+                Text('Supplier invoice: ${order.supplierInvoiceNumber.isEmpty ? 'Not provided' : order.supplierInvoiceNumber}'),
+                Text('Branch: $branch'),
+                Text('Date: ${order.date}'),
+                const Divider(),
+                ...order.items.map((item) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item.productName),
+                  subtitle: Text('${item.quantity} ${item.unit} × ${item.unitCost.toStringAsFixed(2)}'),
+                  trailing: Text(item.total.toStringAsFixed(2)),
+                )),
+                const Divider(),
+                Text('Subtotal: ${order.subtotal.toStringAsFixed(2)}'),
+                Text('Discount: ${order.discount.toStringAsFixed(2)}'),
+                Text('Tax: ${order.tax.toStringAsFixed(2)}'),
+                Text('Total: ${order.total.toStringAsFixed(2)}'),
+                Text('Paid: ${order.amountPaid.toStringAsFixed(2)}'),
+                Text('Balance: ${order.balanceDue.toStringAsFixed(2)}'),
+                Text('Payment status: ${order.paymentStatus}'),
+                Text('Payment method: ${order.paymentMethod}'),
+                if (order.notes.isNotEmpty) Text('Notes: ${order.notes}'),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await InventoryInvoicePdf.sharePurchaseOrder(order, branchName: branch);
+            },
+            child: const Text('Share PDF'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await InventoryInvoicePdf.printPurchaseOrder(order, branchName: branch);
+            },
+            child: const Text('Print PDF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _returnDetails(
+    BuildContext context,
+    SupplierReturnRecord record,
+    InventoryData inventory,
+  ) async {
+    final branch = inventory.getBranchById(record.branchId)?.name ?? record.branchId;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: panel,
+        title: Text(record.returnNumber),
+        content: SizedBox(
+          width: 450,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Supplier: ${record.supplierName}'),
+                Text('Original purchase: ${record.originalPurchaseOrderNumber}'),
+                Text('Branch: $branch'),
+                Text('Date: ${record.date}'),
+                const Divider(),
+                ...record.items.map((item) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item.productName),
+                  subtitle: Text('${item.quantity} ${item.unit} × ${item.unitCost.toStringAsFixed(2)}'),
+                  trailing: Text(item.total.toStringAsFixed(2)),
+                )),
+                const Divider(),
+                Text('Total: ${record.total.toStringAsFixed(2)}'),
+                Text('Reason: ${record.reason}'),
+                Text('Settlement: ${record.settlementType}'),
+                if (record.notes.isNotEmpty) Text('Notes: ${record.notes}'),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await InventoryInvoicePdf.shareSupplierReturn(record, branchName: branch);
+            },
+            child: const Text('Share PDF'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await InventoryInvoicePdf.printSupplierReturn(record, branchName: branch);
+            },
+            child: const Text('Print PDF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _action(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: panel,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF26364D)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 27),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: const TextStyle(color: muted, fontSize: 11)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _summary(String title, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: const Color(0xFF26364D)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(title, style: const TextStyle(color: muted, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final inventory = ref.watch(inventoryProvider);
+    final purchaseData = ref.watch(inventoryPurchaseProvider);
+    final initialized = ref.watch(inventoryPurchaseInitializationProvider);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF080B12),
+      appBar: AppBar(
+        title: const Text('Stock Management'),
+        backgroundColor: const Color(0xFF080B12),
+        foregroundColor: Colors.white,
+      ),
+      body: initialized.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Text('Could not load purchase records: $error'),
+        ),
+        data: (_) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              'Stock Overview',
+              style: TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _summary('Total stock units', inventory.totalUnitsInStock.toString(), blue),
+                const SizedBox(width: 10),
+                _summary('Products', inventory.products.length.toString(), green),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const Text('Stock Actions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _action('Purchase Order', 'Receive stock', Icons.add_shopping_cart, green, () => _purchase(context, ref)),
+                const SizedBox(width: 10),
+                _action('Supplier Return', 'Return to supplier', Icons.assignment_return, orange, () => _supplierReturn(context, ref)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _action('Manual Adjustment', 'Correct stock quantities', Icons.tune, blue, () => _adjust(context, ref)),
+            const SizedBox(height: 24),
+            const Text('Purchase History', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (purchaseData.purchaseOrders.isEmpty)
+              const Text('No purchase orders yet.', style: TextStyle(color: muted))
+            else
+              ...purchaseData.purchaseOrders.map((order) => Card(
+                color: panel,
+                child: ListTile(
+                  onTap: () => _purchaseDetails(context, order, inventory),
+                  title: Text(order.purchaseOrderNumber, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: Text('${order.supplierName} • ${order.date.day}/${order.date.month}/${order.date.year}\nTotal: ${order.total.toStringAsFixed(2)} • ${order.paymentStatus}', style: const TextStyle(color: muted)),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right, color: blue),
+                ),
+              )),
+            const SizedBox(height: 20),
+            const Text('Supplier Return History', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (purchaseData.supplierReturns.isEmpty)
+              const Text('No supplier returns yet.', style: TextStyle(color: muted))
+            else
+              ...purchaseData.supplierReturns.map((record) => Card(
+                color: panel,
+                child: ListTile(
+                  onTap: () => _returnDetails(context, record, inventory),
+                  title: Text(record.returnNumber, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: Text('${record.supplierName} • Original: ${record.originalPurchaseOrderNumber}\nTotal: ${record.total.toStringAsFixed(2)}', style: const TextStyle(color: muted)),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right, color: blue),
+                ),
+              )),
+            const SizedBox(height: 20),
+            const Text('Branch-wise Stock', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ...inventory.products.map((product) => Card(
+              color: panel,
+              child: ExpansionTile(
+                title: Text(product.name, style: const TextStyle(color: Colors.white)),
+                subtitle: Text('${product.sku} • Total: ${product.quantity} ${product.unit}', style: const TextStyle(color: muted)),
+                children: inventory.branches.map((branch) => ListTile(
+                  dense: true,
+                  title: Text(branch.name, style: const TextStyle(color: muted)),
+                  trailing: Text(
+                    '${inventory.getBranchQuantity(product.id, branch.id)} ${product.unit}',
+                    style: const TextStyle(color: green, fontWeight: FontWeight.bold),
+                  ),
+                )).toList(),
+              ),
+            )),
+            const SizedBox(height: 24),
+            const Text('Recent Stock Movements', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (inventory.movements.isEmpty)
+              const Text('No stock movements recorded.', style: TextStyle(color: muted))
+            else
+              ...inventory.movements.reversed.take(30).map((movement) => Card(
+                color: panel,
+                child: ListTile(
+                  title: Text(movement.productName, style: const TextStyle(color: Colors.white)),
+                  subtitle: Text('${movement.type} • ${movement.date.day}/${movement.date.month}/${movement.date.year}\n${movement.referenceCode}', style: const TextStyle(color: muted)),
+                  isThreeLine: true,
+                  trailing: Text(
+                    movement.quantity.toString(),
+                    style: const TextStyle(color: blue, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PurchaseLineInput {
+  _PurchaseLineInput(this.productId);
+
+  String productId;
+  final TextEditingController quantity = TextEditingController(text: '1');
+  final TextEditingController cost = TextEditingController(text: '0');
+
+  void dispose() {
+    quantity.dispose();
+    cost.dispose();
   }
 }
