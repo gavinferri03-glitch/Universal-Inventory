@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryReturns on InventoryData {
+mixin InventoryReturns on InventoryData {
   // ==========================================================
   // SALES RETURN LOOKUP
   // ==========================================================
