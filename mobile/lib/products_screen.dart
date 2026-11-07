@@ -11,6 +11,10 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  final Color blue = const Color(0xFF5798FF);
+  final Color panel = const Color(0xFF121D2D);
+  final Color muted = const Color(0xFF91A4BE);
+
   final TextEditingController searchController = TextEditingController();
 
   String selectedCategory = 'All';
@@ -21,6 +25,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     'Accessories',
     'Furniture',
     'Other',
+  ];
+
+  final List<String> units = [
+    'Pieces',
+    'Boxes',
+    'Packets',
+    'Kilograms',
+    'Grams',
+    'Litres',
+    'Metres',
+    'Pairs',
+    'Cartons',
   ];
 
   @override
@@ -37,7 +53,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return products.where((product) {
       final matchesSearch =
           product.name.toLowerCase().contains(query) ||
-          product.sku.toLowerCase().contains(query);
+          product.sku.toLowerCase().contains(query) ||
+          product.barcode.toLowerCase().contains(query) ||
+          product.supplier.toLowerCase().contains(query);
 
       final matchesCategory = selectedCategory == 'All' ||
           product.category == selectedCategory;
@@ -47,12 +65,32 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void addProduct() {
+    final inventory = ref.read(inventoryProvider);
+    final activeBranches =
+        inventory.branches.where((branch) => branch.active).toList();
+
+    if (activeBranches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please create an active branch first.'),
+        ),
+      );
+      return;
+    }
+
     final nameController = TextEditingController();
     final skuController = TextEditingController();
-    final priceController = TextEditingController();
-    final quantityController = TextEditingController();
+    final barcodeController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final costController = TextEditingController();
+    final sellingController = TextEditingController();
+    final quantityController = TextEditingController(text: '0');
+    final minimumController = TextEditingController(text: '5');
+    final supplierController = TextEditingController();
 
     String category = 'Electronics';
+    String unit = 'Pieces';
+    String selectedBranchId = activeBranches.first.id;
 
     showDialog(
       context: context,
@@ -60,78 +98,158 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: const Color(0xFF172436),
+              backgroundColor: panel,
               title: const Text(
                 'Add New Product',
                 style: TextStyle(color: Colors.white),
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _field(nameController, 'Product Name'),
-                    _field(skuController, 'SKU / Product Code'),
-                    _field(
-                      priceController,
-                      'Selling Price',
-                      keyboardType: TextInputType.number,
-                    ),
-                    _field(
-                      quantityController,
-                      'Opening Quantity',
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: category,
-                      dropdownColor: const Color(0xFF172436),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        border: OutlineInputBorder(),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _sectionTitle('Basic Information'),
+                      _field(nameController, 'Product Name *'),
+                      _field(skuController, 'SKU / Product Code *'),
+                      _field(barcodeController, 'Barcode'),
+                      _field(
+                        descriptionController,
+                        'Product Description',
+                        maxLines: 3,
                       ),
-                      items: categories
-                          .where((item) => item != 'All')
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() => category = value);
-                        }
-                      },
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: category,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Category'),
+                        items: categories
+                            .where((item) => item != 'All')
+                            .map((item) => DropdownMenuItem(
+                                  value: item,
+                                  child: Text(item),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => category = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      _sectionTitle('Pricing Information'),
+                      _field(
+                        costController,
+                        'Cost / Purchase Price *',
+                        keyboardType: TextInputType.number,
+                      ),
+                      _field(
+                        sellingController,
+                        'Selling Price *',
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 20),
+                      _sectionTitle('Stock Information'),
+                      DropdownButtonFormField<String>(
+                        value: unit,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Unit of Measurement'),
+                        items: units.map((item) {
+                          return DropdownMenuItem(
+                            value: item,
+                            child: Text(item),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => unit = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _field(
+                        quantityController,
+                        'Opening Quantity *',
+                        keyboardType: TextInputType.number,
+                      ),
+                      _field(
+                        minimumController,
+                        'Minimum Stock Alert Level *',
+                        keyboardType: TextInputType.number,
+                      ),
+                      DropdownButtonFormField<String>(
+                        value: selectedBranchId,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Initial Branch'),
+                        items: activeBranches.map((branch) {
+                          return DropdownMenuItem(
+                            value: branch.id,
+                            child: Text(branch.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(
+                              () => selectedBranchId = value,
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      _sectionTitle('Supplier Information'),
+                      _field(supplierController, 'Supplier Name'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'The opening quantity will be assigned to the selected branch. You can allocate more stock to other branches later.',
+                        style: TextStyle(
+                          color: muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel', style: TextStyle(color: muted)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: blue,
+                    foregroundColor: Colors.white,
+                  ),
                   onPressed: () {
                     final name = nameController.text.trim();
                     final sku = skuController.text.trim();
-                    final price = double.tryParse(
-                      priceController.text.trim(),
+                    final cost = double.tryParse(
+                      costController.text.trim(),
+                    );
+                    final selling = double.tryParse(
+                      sellingController.text.trim(),
                     );
                     final quantity = int.tryParse(
                       quantityController.text.trim(),
                     );
+                    final minimum = int.tryParse(
+                      minimumController.text.trim(),
+                    );
 
                     if (name.isEmpty ||
                         sku.isEmpty ||
-                        price == null ||
+                        cost == null ||
+                        selling == null ||
                         quantity == null ||
-                        price < 0 ||
-                        quantity < 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                        minimum == null ||
+                        cost < 0 ||
+                        selling < 0 ||
+                        quantity < 0 ||
+                        minimum < 0) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
                         const SnackBar(
                           content: Text(
                             'Please enter valid product details.',
@@ -146,8 +264,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                             name: name,
                             sku: sku,
                             category: category,
-                            sellingPrice: price,
+                            barcode: barcodeController.text.trim(),
+                            description:
+                                descriptionController.text.trim(),
+                            costPrice: cost,
+                            sellingPrice: selling,
+                            unit: unit,
                             openingQuantity: quantity,
+                            minimumStock: minimum,
+                            supplier: supplierController.text.trim(),
+                            initialBranchId: selectedBranchId,
                           );
 
                       Navigator.pop(dialogContext);
@@ -158,7 +284,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         ),
                       );
                     } catch (error) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(this.context).showSnackBar(
                         SnackBar(
                           content: Text(
                             error.toString().replaceFirst(
@@ -180,27 +306,196 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     ).then((_) {
       nameController.dispose();
       skuController.dispose();
-      priceController.dispose();
+      barcodeController.dispose();
+      descriptionController.dispose();
+      costController.dispose();
+      sellingController.dispose();
       quantityController.dispose();
+      minimumController.dispose();
+      supplierController.dispose();
     });
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: muted),
+      filled: true,
+      fillColor: const Color(0xFF080B12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    );
   }
 
   Widget _field(
     TextEditingController controller,
     String label, {
     TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        maxLines: maxLines,
         style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.white70),
-          border: const OutlineInputBorder(),
+        decoration: _decoration(label),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: TextStyle(
+            color: blue,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
         ),
+      ),
+    );
+  }
+
+  void showProductDetails(InventoryProduct product) {
+    final inventory = ref.read(inventoryProvider);
+    final branches = inventory.branches;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: panel,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(22),
+              children: [
+                Text(
+                  product.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${product.sku} • ${product.category}',
+                  style: TextStyle(color: muted),
+                ),
+                const SizedBox(height: 22),
+                _detailRow('Barcode', product.barcode),
+                _detailRow('Description', product.description),
+                _detailRow('Supplier', product.supplier),
+                _detailRow('Unit', product.unit),
+                _detailRow(
+                  'Cost Price',
+                  'Rs. ${product.costPrice.toStringAsFixed(2)}',
+                ),
+                _detailRow(
+                  'Selling Price',
+                  'Rs. ${product.sellingPrice.toStringAsFixed(2)}',
+                ),
+                _detailRow(
+                  'Profit per Unit',
+                  'Rs. ${product.profitPerUnit.toStringAsFixed(2)}',
+                ),
+                _detailRow(
+                  'Profit Margin',
+                  '${product.profitMargin.toStringAsFixed(1)}%',
+                ),
+                _detailRow(
+                  'Minimum Stock',
+                  '${product.minimumStock} ${product.unit}',
+                ),
+                _detailRow(
+                  'Total Stock',
+                  '${product.quantity} ${product.unit}',
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Branch-wise Stock',
+                  style: TextStyle(
+                    color: blue,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...branches.map((branch) {
+                  final quantity =
+                      product.branchQuantities[branch.id] ?? 0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF080B12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            branch.name,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        Text(
+                          '$quantity ${product.unit}',
+                          style: TextStyle(
+                            color: quantity <= product.minimumStock
+                                ? Colors.orangeAccent
+                                : Colors.greenAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 125,
+            child: Text(title, style: TextStyle(color: muted)),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -211,12 +506,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final visibleProducts = getFilteredProducts(inventory.products);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1421),
+      backgroundColor: const Color(0xFF080B12),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF101927),
+        backgroundColor: const Color(0xFF080B12),
         foregroundColor: Colors.white,
         title: const Text(
-          'Products',
+          'Product Master',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -237,14 +532,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onChanged: (_) => setState(() {}),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Search products or SKU...',
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF78AEFF),
-                  ),
+                  hintText: 'Search name, SKU, barcode or supplier...',
+                  hintStyle: TextStyle(color: muted),
+                  prefixIcon: Icon(Icons.search, color: blue),
                   filled: true,
-                  fillColor: const Color(0xFF172436),
+                  fillColor: panel,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -258,8 +550,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: categories.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(width: 8),
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final category = categories[index];
                   final selected = selectedCategory == category;
@@ -270,10 +561,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     onSelected: (_) {
                       setState(() => selectedCategory = category);
                     },
-                    selectedColor: const Color(0xFF347FE2),
-                    backgroundColor: const Color(0xFF172436),
+                    selectedColor: blue,
+                    backgroundColor: panel,
                     labelStyle: TextStyle(
-                      color: selected ? Colors.white : Colors.white70,
+                      color: selected ? Colors.white : muted,
                     ),
                     side: BorderSide.none,
                   );
@@ -295,111 +586,128 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ),
                   Text(
                     '${visibleProducts.length} Products',
-                    style: const TextStyle(
-                      color: Color(0xFF78AEFF),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: blue, fontSize: 12),
                   ),
                 ],
               ),
             ),
             Expanded(
               child: visibleProducts.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No products found.',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: muted),
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
                       itemCount: visibleProducts.length,
                       itemBuilder: (context, index) {
                         final product = visibleProducts[index];
-                        final quantity = product.quantity;
-                        final lowStock = quantity <= 10;
+                        final lowStock =
+                            product.quantity <= product.minimumStock;
 
-                        return Container(
+                        return Card(
+                          color: panel,
                           margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF172436),
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.06),
-                            ),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF347FE2)
-                                      .withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.inventory_2_outlined,
-                                  color: Color(0xFF78AEFF),
-                                ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(14),
+                            onTap: () => showProductDetails(product),
+                            leading: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: blue.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      '${product.sku} • ${product.category}',
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Rs. ${product.sellingPrice.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF78AEFF),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                color: blue,
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                            ),
+                            title: Text(
+                              product.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 7),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '$quantity units',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                    '${product.sku} • ${product.category}',
+                                    style: TextStyle(
+                                      color: muted,
+                                      fontSize: 11,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 5),
                                   Text(
-                                    lowStock ? 'Low Stock' : 'In Stock',
+                                    'Cost: Rs. ${product.costPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
-                                      color: lowStock
-                                          ? const Color(0xFFFFB454)
-                                          : const Color(0xFF54D69A),
+                                      color: muted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Selling: Rs. ${product.sellingPrice.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: blue,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    product.supplier.isEmpty
+                                        ? 'Supplier: Not specified'
+                                        : 'Supplier: ${product.supplier}',
+                                    style: TextStyle(
+                                      color: muted,
                                       fontSize: 11,
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${product.quantity}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  product.unit,
+                                  style: TextStyle(
+                                    color: muted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  lowStock ? 'Low Stock' : 'In Stock',
+                                  style: TextStyle(
+                                    color: lowStock
+                                        ? Colors.orangeAccent
+                                        : Colors.greenAccent,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -410,7 +718,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: addProduct,
-        backgroundColor: const Color(0xFF347FE2),
+        backgroundColor: blue,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Product'),
