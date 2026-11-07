@@ -1,37 +1,42 @@
 part of 'inventory_data.dart';
 
-extension InventoryCategories on InventoryData {
-  // ==========================================================
-  // ADD CATEGORY
-  // ==========================================================
+extension InventoryBranches on InventoryData {
+  int get activeBranchCount {
+    return _branches.where((branch) => branch.active).length;
+  }
 
-  void addCategory({
-    required String name,
-    required String code,
-    String description = '',
-  }) {
-    if (name.trim().isEmpty || code.trim().isEmpty) {
-      throw Exception('Category name and code are required.');
+  void addBranch(
+    String name,
+    String code,
+    String city,
+    String address,
+    String phone,
+    String email,
+    String manager,
+  ) {
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
+      throw Exception('Branch name and code are required.');
     }
 
-    if (_categories.any(
-      (item) => item.name.toLowerCase() == name.trim().toLowerCase(),
+    if (_branches.any(
+      (branch) => branch.code.toLowerCase() == cleanCode.toLowerCase(),
     )) {
-      throw Exception('Category name already exists.');
+      throw Exception('A branch with this code already exists.');
     }
 
-    if (_categories.any(
-      (item) => item.code.toLowerCase() == code.trim().toLowerCase(),
-    )) {
-      throw Exception('Category code already exists.');
-    }
-
-    _categories.add(
-      InventoryCategory(
+    _branches.add(
+      InventoryBranch(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: name.trim(),
-        code: code.trim(),
-        description: description.trim(),
+        name: cleanName,
+        code: cleanCode,
+        city: city.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        manager: manager.trim(),
         active: true,
       ),
     );
@@ -39,96 +44,112 @@ extension InventoryCategories on InventoryData {
     notifyListeners();
   }
 
-  // ==========================================================
-  // UPDATE CATEGORY
-  // ==========================================================
-
-  void updateCategory({
-    required String categoryId,
+  void updateBranch({
+    required String id,
     required String name,
-    String description = '',
+    required String code,
+    required String city,
+    required String address,
+    required String phone,
+    required String email,
+    required String manager,
   }) {
-    final category = getCategoryById(categoryId);
+    final index = _branches.indexWhere((branch) => branch.id == id);
 
-    if (category == null) {
-      throw Exception('Category not found.');
+    if (index == -1) {
+      throw Exception('Branch not found.');
     }
 
-    if (name.trim().isEmpty) {
-      throw Exception('Category name is required.');
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
+      throw Exception('Branch name and code are required.');
     }
 
-    if (_categories.any(
-      (item) =>
-          item.id != categoryId &&
-          item.name.toLowerCase() == name.trim().toLowerCase(),
+    if (_branches.any(
+      (branch) =>
+          branch.id != id &&
+          branch.code.toLowerCase() == cleanCode.toLowerCase(),
     )) {
-      throw Exception('Category name already exists.');
+      throw Exception('A branch with this code already exists.');
     }
 
-    category.name = name.trim();
-    category.description = description.trim();
+    final oldBranch = _branches[index];
+
+    _branches[index] = InventoryBranch(
+      id: oldBranch.id,
+      name: cleanName,
+      code: cleanCode,
+      city: city.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      manager: manager.trim(),
+      active: oldBranch.active,
+    );
 
     notifyListeners();
   }
 
-  // ==========================================================
-  // CATEGORY SUMMARY
-  // ==========================================================
-
-  int get activeCategoryCount =>
-      _categories.where((item) => item.active).length;
-
-  int getCategoryProductCount(String categoryId) {
-    final category = getCategoryById(categoryId);
-
-    if (category == null) return 0;
-
-    return _products
-        .where(
-          (item) =>
-              item.category.toLowerCase() ==
-              category.name.toLowerCase(),
-        )
-        .length;
-  }
-
-  // ==========================================================
-  // DELETE CATEGORY
-  // ==========================================================
-
-  void deleteCategory(String categoryId) {
-    final category = getCategoryById(categoryId);
-
-    if (category == null) {
-      throw Exception('Category not found.');
+  void deleteBranch(String branchId) {
+    if (!_branches.any((branch) => branch.id == branchId)) {
+      return;
     }
 
-    if (_products.any(
-      (item) =>
-          item.category.toLowerCase() ==
-          category.name.toLowerCase(),
-    )) {
-      throw Exception('Cannot delete a category containing products.');
+    if (_branches.length <= 1) {
+      throw Exception('At least one branch must remain.');
     }
 
-    _categories.removeWhere((item) => item.id == categoryId);
+    final hasStock = _products.any(
+      (product) => (product.branchQuantities[branchId] ?? 0) > 0,
+    );
 
+    final hasMovements = _movements.any(
+      (movement) => movement.branchId == branchId,
+    );
+
+    final hasSales = _sales.any(
+      (sale) => sale.branchId == branchId,
+    );
+
+    if (hasStock || hasMovements || hasSales) {
+      throw Exception(
+        'This branch has inventory or transaction records. '
+        'Deactivate it instead of deleting it.',
+      );
+    }
+
+    _branches.removeWhere((branch) => branch.id == branchId);
     notifyListeners();
   }
 
-  // ==========================================================
-  // CATEGORY STATUS
-  // ==========================================================
+  void toggleBranchStatus(String branchId) {
+    final index = _branches.indexWhere(
+      (branch) => branch.id == branchId,
+    );
 
-  void toggleCategoryStatus(String categoryId) {
-    final category = getCategoryById(categoryId);
-
-    if (category == null) {
-      throw Exception('Category not found.');
+    if (index == -1) {
+      return;
     }
 
-    category.active = !category.active;
+    final branch = _branches[index];
+
+    if (branch.active && activeBranchCount <= 1) {
+      throw Exception('At least one active branch must remain.');
+    }
+
+    _branches[index] = InventoryBranch(
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
+      city: branch.city,
+      address: branch.address,
+      phone: branch.phone,
+      email: branch.email,
+      manager: branch.manager,
+      active: !branch.active,
+    );
 
     notifyListeners();
   }
