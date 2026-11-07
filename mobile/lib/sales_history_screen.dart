@@ -1,7 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'inventory_data.dart';
+import 'inventory_models.dart';
+import 'inventory_invoice_pdf.dart';
 import 'list_tools.dart';
 
 class SalesHistoryScreen extends ConsumerStatefulWidget {
@@ -17,6 +20,8 @@ class _SalesHistoryScreenState
   static const Color background = Color(0xFF080B12);
   static const Color panel = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
+  static const Color green = Color(0xFF45C99A);
+  static const Color orange = Color(0xFFFFB454);
   static const Color muted = Color(0xFF91A4BE);
 
   final TextEditingController searchController =
@@ -26,7 +31,13 @@ class _SalesHistoryScreenState
   String selectedSort = 'newest';
   String selectedFilter = 'all';
 
-  String paymentMethod = 'Cash';
+  final List<String> paymentMethods = [
+    'Cash',
+    'QR',
+    'Card',
+    'Bank Transfer',
+    'Credit',
+  ];
 
   final Map<String, String> sortOptions = {
     'newest': 'Newest first',
@@ -44,14 +55,6 @@ class _SalesHistoryScreenState
     'unpaid': 'Unpaid',
   };
 
-  final List<String> paymentMethods = [
-    'Cash',
-    'QR',
-    'Card',
-    'Bank Transfer',
-    'Credit',
-  ];
-
   @override
   void dispose() {
     searchController.dispose();
@@ -62,93 +65,15 @@ class _SalesHistoryScreenState
       'Rs. ${value.toStringAsFixed(2)}';
 
   String paymentStatus(SaleRecord sale) {
-    if (sale.amountPaid >= sale.total) {
-      return 'Paid';
-    }
-
-    if (sale.amountPaid > 0) {
-      return 'Partially Paid';
-    }
-
+    if (sale.amountPaid >= sale.total) return 'Paid';
+    if (sale.amountPaid > 0) return 'Partially Paid';
     return 'Unpaid';
   }
 
   Color statusColor(SaleRecord sale) {
-    if (sale.amountPaid >= sale.total) {
-      return Colors.greenAccent;
-    }
-
-    if (sale.amountPaid > 0) {
-      return Colors.orangeAccent;
-    }
-
+    if (sale.amountPaid >= sale.total) return green;
+    if (sale.amountPaid > 0) return orange;
     return Colors.redAccent;
-  }
-
-  List<SaleRecord> getSales(InventoryData inventory) {
-    final query = searchText.trim().toLowerCase();
-
-    final result = inventory.sales.where((sale) {
-      final branch = inventory.findBranch(sale.branchId);
-
-      final matchesSearch =
-          query.isEmpty ||
-          sale.invoiceNumber.toLowerCase().contains(query) ||
-          sale.customerName.toLowerCase().contains(query) ||
-          sale.customerPhone.toLowerCase().contains(query) ||
-          sale.paymentMethod.toLowerCase().contains(query) ||
-          (branch?.name.toLowerCase().contains(query) ?? false);
-
-      final status = paymentStatus(sale);
-
-      bool matchesFilter = true;
-
-      switch (selectedFilter) {
-        case 'paid':
-          matchesFilter = status == 'Paid';
-          break;
-        case 'partial':
-          matchesFilter = status == 'Partially Paid';
-          break;
-        case 'unpaid':
-          matchesFilter = status == 'Unpaid';
-          break;
-      }
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-
-    switch (selectedSort) {
-      case 'newest':
-        result.sort((a, b) => b.date.compareTo(a.date));
-        break;
-
-      case 'oldest':
-        result.sort((a, b) => a.date.compareTo(b.date));
-        break;
-
-      case 'total_high':
-        result.sort((a, b) => b.total.compareTo(a.total));
-        break;
-
-      case 'total_low':
-        result.sort((a, b) => a.total.compareTo(b.total));
-        break;
-
-      case 'invoice_az':
-        result.sort(
-          (a, b) => a.invoiceNumber.compareTo(b.invoiceNumber),
-        );
-        break;
-
-      case 'invoice_za':
-        result.sort(
-          (a, b) => b.invoiceNumber.compareTo(a.invoiceNumber),
-        );
-        break;
-    }
-
-    return result;
   }
 
   void showMessage(String message, {bool error = false}) {
@@ -163,8 +88,71 @@ class _SalesHistoryScreenState
     );
   }
 
+  Future<void> runPdf(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      showMessage(
+        'PDF operation failed: ${error.toString()}',
+        error: true,
+      );
+    }
+  }
+
+  List<SaleRecord> getSales(InventoryData inventory) {
+    final query = searchText.trim().toLowerCase();
+
+    final result = inventory.sales.where((sale) {
+      final branch = inventory.findBranch(sale.branchId);
+
+      final matchesSearch = query.isEmpty ||
+          sale.invoiceNumber.toLowerCase().contains(query) ||
+          sale.customerName.toLowerCase().contains(query) ||
+          sale.customerPhone.toLowerCase().contains(query) ||
+          sale.paymentMethod.toLowerCase().contains(query) ||
+          (branch?.name.toLowerCase().contains(query) ?? false);
+
+      final status = paymentStatus(sale);
+
+      final matchesFilter = selectedFilter == 'all' ||
+          (selectedFilter == 'paid' && status == 'Paid') ||
+          (selectedFilter == 'partial' &&
+              status == 'Partially Paid') ||
+          (selectedFilter == 'unpaid' && status == 'Unpaid');
+
+      return matchesSearch && matchesFilter;
+    }).toList();
+
+    switch (selectedSort) {
+      case 'newest':
+        result.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'oldest':
+        result.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'total_high':
+        result.sort((a, b) => b.total.compareTo(a.total));
+        break;
+      case 'total_low':
+        result.sort((a, b) => a.total.compareTo(b.total));
+        break;
+      case 'invoice_az':
+        result.sort(
+          (a, b) => a.invoiceNumber.compareTo(b.invoiceNumber),
+        );
+        break;
+      case 'invoice_za':
+        result.sort(
+          (a, b) => b.invoiceNumber.compareTo(a.invoiceNumber),
+        );
+        break;
+    }
+
+    return result;
+  }
+
   // ============================================================
-  // EDIT PAYMENT ONLY
+  // EDIT PAYMENT
   // ============================================================
 
   Future<void> editPayment(SaleRecord sale) async {
@@ -178,7 +166,7 @@ class _SalesHistoryScreenState
       paymentMethods.add(selectedMethod);
     }
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -192,24 +180,17 @@ class _SalesHistoryScreenState
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Invoice: ${sale.invoiceNumber}',
-                      style: const TextStyle(
-                        color: blue,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: blue),
                     ),
                     const SizedBox(height: 15),
-
                     Text(
                       'Invoice Total: ${money(sale.total)}',
                       style: const TextStyle(color: Colors.white),
                     ),
-
                     const SizedBox(height: 15),
-
                     TextField(
                       controller: amountController,
                       keyboardType:
@@ -222,9 +203,7 @@ class _SalesHistoryScreenState
                         prefixText: 'Rs. ',
                       ),
                     ),
-
                     const SizedBox(height: 15),
-
                     DropdownButtonFormField<String>(
                       value: selectedMethod,
                       dropdownColor: panel,
@@ -245,32 +224,15 @@ class _SalesHistoryScreenState
                         }
                       },
                     ),
-
-                    const SizedBox(height: 15),
-
-                    const Text(
-                      'Only payment information can be changed. '
-                      'Invoice products, quantities, prices, discount '
-                      'and tax will remain unchanged.',
-                      style: TextStyle(
-                        color: muted,
-                        fontSize: 12,
-                      ),
-                    ),
                   ],
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () =>
-                      Navigator.pop(dialogContext),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: blue,
-                    foregroundColor: Colors.white,
-                  ),
                   onPressed: () {
                     final amount = double.tryParse(
                       amountController.text.trim(),
@@ -292,11 +254,10 @@ class _SalesHistoryScreenState
                           );
 
                       Navigator.pop(dialogContext);
-
                       showMessage('Payment updated successfully.');
-                    } catch (e) {
+                    } catch (error) {
                       showMessage(
-                        e.toString().replaceFirst(
+                        error.toString().replaceFirst(
                               'Exception: ',
                               '',
                             ),
@@ -317,14 +278,15 @@ class _SalesHistoryScreenState
   }
 
   // ============================================================
-  // SALE DETAILS
+  // SALES INVOICE DETAILS
   // ============================================================
 
   void showSaleDetails(SaleRecord sale) {
     final inventory = ref.read(inventoryProvider);
-    final branch = inventory.findBranch(sale.branchId);
+    final branch =
+        inventory.findBranch(sale.branchId)?.name ?? 'Unknown branch';
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: panel,
       isScrollControlled: true,
@@ -341,19 +303,6 @@ class _SalesHistoryScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: muted,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
                   const Text(
                     'Sale Details',
                     style: TextStyle(
@@ -362,9 +311,7 @@ class _SalesHistoryScreenState
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
                   Text(
                     sale.invoiceNumber,
                     style: const TextStyle(
@@ -372,45 +319,17 @@ class _SalesHistoryScreenState
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
-                  const Divider(
-                    color: Colors.white12,
-                    height: 28,
-                  ),
-
-                  _detailRow(
-                    'Date',
-                    '${sale.date.day}/${sale.date.month}/${sale.date.year}',
-                  ),
-
-                  _detailRow(
-                    'Time',
-                    '${sale.date.hour.toString().padLeft(2, '0')}:'
-                    '${sale.date.minute.toString().padLeft(2, '0')}',
-                  ),
-
-                  _detailRow(
-                    'Branch',
-                    branch?.name ?? 'Unknown branch',
-                  ),
-
+                  const Divider(color: Colors.white12, height: 28),
+                  _detailRow('Date', dateText(sale.date)),
+                  _detailRow('Branch', branch),
                   _detailRow(
                     'Customer',
                     sale.customerName.isEmpty
                         ? 'Walk-in Customer'
                         : sale.customerName,
                   ),
-
-                  _detailRow(
-                    'Phone',
-                    sale.customerPhone,
-                  ),
-
-                  const Divider(
-                    color: Colors.white12,
-                    height: 28,
-                  ),
-
+                  _detailRow('Phone', sale.customerPhone),
+                  const Divider(color: Colors.white12, height: 28),
                   const Text(
                     'Products',
                     style: TextStyle(
@@ -419,9 +338,7 @@ class _SalesHistoryScreenState
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   ...sale.items.map((item) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -440,7 +357,6 @@ class _SalesHistoryScreenState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 5),
                           Text(
                             'SKU: ${item.sku}',
                             style: const TextStyle(
@@ -452,86 +368,89 @@ class _SalesHistoryScreenState
                           Text(
                             '${item.quantity} × ${money(item.unitPrice)}'
                             ' = ${money(item.total)}',
-                            style: const TextStyle(
-                              color: blue,
-                              fontSize: 13,
-                            ),
+                            style: const TextStyle(color: blue),
                           ),
                         ],
                       ),
                     );
                   }),
-
-                  const Divider(
-                    color: Colors.white12,
-                    height: 28,
-                  ),
-
+                  const Divider(color: Colors.white12, height: 28),
                   _amountRow('Subtotal', sale.subtotal),
                   _amountRow('Discount', -sale.discount),
                   _amountRow('Tax', sale.tax),
-
-                  const Divider(color: Colors.white12),
-
-                  _amountRow(
-                    'Invoice Total',
-                    sale.total,
-                    bold: true,
-                  ),
-
-                  _amountRow(
-                    'Amount Received',
-                    sale.amountPaid,
-                  ),
-
+                  _amountRow('Invoice Total', sale.total, bold: true),
+                  _amountRow('Amount Received', sale.amountPaid),
                   _amountRow(
                     'Balance Due',
                     sale.balanceDue,
-                    valueColor: sale.balanceDue > 0
-                        ? Colors.orangeAccent
-                        : Colors.greenAccent,
+                    valueColor:
+                        sale.balanceDue > 0 ? orange : green,
                   ),
-
                   if (sale.change > 0)
                     _amountRow(
                       'Change',
                       sale.change,
-                      valueColor: Colors.greenAccent,
+                      valueColor: green,
                     ),
-
-                  const Divider(
-                    color: Colors.white12,
-                    height: 28,
-                  ),
-
-                  _detailRow(
-                    'Payment Method',
-                    sale.paymentMethod,
-                  ),
-
+                  const Divider(color: Colors.white12, height: 28),
+                  _detailRow('Payment Method', sale.paymentMethod),
                   _detailRow(
                     'Payment Status',
                     paymentStatus(sale),
                     valueColor: statusColor(sale),
                   ),
-
-                  const SizedBox(height: 20),
-
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            runPdf(() =>
+                                InventoryInvoicePdf.printSalesInvoice(
+                                  sale,
+                                  branchName: branch,
+                                ));
+                          },
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: blue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            runPdf(() =>
+                                InventoryInvoicePdf.shareSalesInvoice(
+                                  sale,
+                                  branchName: branch,
+                                ));
+                          },
+                          icon: const Icon(Icons.share),
+                          label: const Text('Share PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: green,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => editPayment(sale),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        editPayment(sale);
+                      },
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit Payment'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.all(14),
-                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -539,6 +458,168 @@ class _SalesHistoryScreenState
         );
       },
     );
+  }
+
+  // ============================================================
+  // CUSTOMER SALES RETURN DETAILS
+  // ============================================================
+
+  void showSalesReturnDetails(SalesReturnRecord record) {
+    final inventory = ref.read(inventoryProvider);
+    final branch =
+        inventory.findBranch(record.branchId)?.name ?? 'Unknown branch';
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: panel,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Customer Sales Return',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    record.returnNumber,
+                    style: const TextStyle(
+                      color: orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 28),
+                  _detailRow('Date', dateText(record.date)),
+                  _detailRow('Customer', record.customerName),
+                  _detailRow(
+                    'Original Invoice',
+                    record.originalInvoiceNumber,
+                  ),
+                  _detailRow('Branch', branch),
+                  _detailRow('Reason', record.reason),
+                  const Divider(color: Colors.white12, height: 28),
+                  const Text(
+                    'Returned Products',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...record.items.map((item) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: background,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.productName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'SKU: ${item.sku}',
+                            style: const TextStyle(
+                              color: muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            '${item.quantity} × ${money(item.unitPrice)}'
+                            ' = ${money(item.total)}',
+                            style: const TextStyle(color: orange),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(color: Colors.white12, height: 28),
+                  _amountRow(
+                    'Total Returned',
+                    record.total,
+                    bold: true,
+                    valueColor: orange,
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            runPdf(() =>
+                                InventoryInvoicePdf.printSalesReturn(
+                                  record,
+                                  branchName: branch,
+                                ));
+                          },
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: blue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            runPdf(() =>
+                                InventoryInvoicePdf.shareSalesReturn(
+                                  record,
+                                  branchName: branch,
+                                ));
+                          },
+                          icon: const Icon(Icons.share),
+                          label: const Text('Share PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: green,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // REUSABLE DISPLAY WIDGETS
+  // ============================================================
+
+  String dateText(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year} '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _detailRow(
@@ -609,22 +690,12 @@ class _SalesHistoryScreenState
     );
   }
 
-  // ============================================================
-  // SALE CARD
-  // ============================================================
-
   Widget saleCard(SaleRecord sale, InventoryData inventory) {
     final branch = inventory.findBranch(sale.branchId);
 
     return Card(
       color: panel,
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: Colors.white.withOpacity(0.05),
-        ),
-      ),
       child: ListTile(
         onTap: () => showSaleDetails(sale),
         contentPadding: const EdgeInsets.symmetric(
@@ -681,20 +752,45 @@ class _SalesHistoryScreenState
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 5),
-            const Icon(
-              Icons.chevron_right,
-              color: muted,
-            ),
+            const Icon(Icons.chevron_right, color: muted),
           ],
         ),
       ),
     );
   }
 
-  // ============================================================
-  // SUMMARY
-  // ============================================================
+  Widget salesReturnCard(SalesReturnRecord record) {
+    return Card(
+      color: panel,
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        onTap: () => showSalesReturnDetails(record),
+        leading: const Icon(
+          Icons.assignment_return_outlined,
+          color: orange,
+        ),
+        title: Text(
+          record.returnNumber,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Text(
+          '${record.customerName} • '
+          'Original: ${record.originalInvoiceNumber}',
+          style: const TextStyle(color: muted, fontSize: 12),
+        ),
+        trailing: Text(
+          money(record.total),
+          style: const TextStyle(
+            color: orange,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget summaryCard(
     String title,
@@ -752,6 +848,10 @@ class _SalesHistoryScreenState
         .where((sale) => paymentStatus(sale) == 'Unpaid')
         .length;
 
+    final salesReturns = List<SalesReturnRecord>.from(
+      inventory.salesReturns,
+    )..sort((a, b) => b.date.compareTo(a.date));
+
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -786,7 +886,6 @@ class _SalesHistoryScreenState
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: InventoryListToolbar(
@@ -807,32 +906,63 @@ class _SalesHistoryScreenState
                 },
               ),
             ),
-
             const SizedBox(height: 12),
-
             Expanded(
-              child: sales.isEmpty
-                  ? const Center(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                children: [
+                  const Text(
+                    'Sales Invoices',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (sales.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
                       child: Text(
                         'No sales records found.',
                         style: TextStyle(color: muted),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        20,
-                      ),
-                      itemCount: sales.length,
-                      itemBuilder: (context, index) {
-                        return saleCard(
-                          sales[index],
-                          inventory,
-                        );
-                      },
                     ),
+                  ...sales.map((sale) => saleCard(sale, inventory)),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Customer Sales Returns',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${salesReturns.length} records',
+                        style: const TextStyle(
+                          color: muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (salesReturns.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'No customer sales returns recorded yet.',
+                        style: TextStyle(color: muted),
+                      ),
+                    ),
+                  ...salesReturns.map(salesReturnCard),
+                ],
+              ),
             ),
           ],
         ),
