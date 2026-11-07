@@ -17,17 +17,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   final Color panel = const Color(0xFF121D2D);
   final Color muted = const Color(0xFF91A4BE);
 
-  final TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController =
+      TextEditingController();
 
   String selectedCategory = 'All';
-
-  final List<String> categories = [
-    'All',
-    'Electronics',
-    'Accessories',
-    'Furniture',
-    'Other',
-  ];
 
   final List<String> units = [
     'Pieces',
@@ -47,10 +40,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     super.dispose();
   }
 
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   List<InventoryProduct> getFilteredProducts(
     List<InventoryProduct> products,
   ) {
-    final query = searchController.text.toLowerCase();
+    final query = searchController.text.trim().toLowerCase();
 
     return products.where((product) {
       final matchesSearch =
@@ -66,607 +67,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }).toList();
   }
 
-  // ==========================================================
-  // ADD PRODUCT
-  // ==========================================================
-
-  void addProduct() {
-    final inventory = ref.read(inventoryProvider);
-
-    final activeBranches =
-        inventory.branches.where((branch) => branch.active).toList();
-
-    if (activeBranches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please create an active branch first.'),
-        ),
-      );
-      return;
-    }
-
-    final nameController = TextEditingController();
-    final barcodeController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final costController = TextEditingController();
-    final sellingController = TextEditingController();
-    final quantityController = TextEditingController(text: '0');
-    final minimumController = TextEditingController(text: '5');
-    final supplierController = TextEditingController();
-
-    final generatedSku = CodeGenerator.next(
-      prefix: 'PR',
-      existingCodes: inventory.products.map((product) => product.sku),
-    );
-
-    String category = 'Electronics';
-    String unit = 'Pieces';
-    String selectedBranchId = activeBranches.first.id;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: panel,
-              title: const Text(
-                'Add New Product',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _sectionTitle('Basic Information'),
-
-                      _field(
-                        nameController,
-                        'Product Name *',
-                      ),
-
-                      TextFormField(
-                        initialValue: generatedSku,
-                        readOnly: true,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: _decoration(
-                          'Automatically Generated Product Code',
-                        ).copyWith(
-                          suffixIcon: Icon(
-                            Icons.lock_outline,
-                            color: muted,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      _field(
-                        barcodeController,
-                        'Barcode',
-                      ),
-
-                      _field(
-                        descriptionController,
-                        'Product Description',
-                        maxLines: 3,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      DropdownButtonFormField<String>(
-                        value: category,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Category'),
-                        items: categories
-                            .where((item) => item != 'All')
-                            .map(
-                              (item) => DropdownMenuItem(
-                                value: item,
-                                child: Text(item),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => category = value);
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Pricing Information'),
-
-                      _field(
-                        costController,
-                        'Cost / Purchase Price *',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-
-                      _field(
-                        sellingController,
-                        'Selling Price *',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Stock Information'),
-
-                      DropdownButtonFormField<String>(
-                        value: unit,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Unit of Measurement'),
-                        items: units.map((item) {
-                          return DropdownMenuItem(
-                            value: item,
-                            child: Text(item),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => unit = value);
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      _field(
-                        quantityController,
-                        'Opening Quantity *',
-                        keyboardType: TextInputType.number,
-                      ),
-
-                      _field(
-                        minimumController,
-                        'Minimum Stock Alert Level *',
-                        keyboardType: TextInputType.number,
-                      ),
-
-                      DropdownButtonFormField<String>(
-                        value: selectedBranchId,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Initial Branch'),
-                        items: activeBranches.map((branch) {
-                          return DropdownMenuItem(
-                            value: branch.id,
-                            child: Text(branch.name),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(
-                              () => selectedBranchId = value,
-                            );
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Supplier Information'),
-
-                      _field(
-                        supplierController,
-                        'Supplier Name',
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'The opening quantity will be assigned to the selected branch. You can allocate more stock to other branches later.',
-                        style: TextStyle(
-                          color: muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(color: muted),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    final name = nameController.text.trim();
-
-                    final cost = double.tryParse(
-                      costController.text.trim(),
-                    );
-
-                    final selling = double.tryParse(
-                      sellingController.text.trim(),
-                    );
-
-                    final quantity = int.tryParse(
-                      quantityController.text.trim(),
-                    );
-
-                    final minimum = int.tryParse(
-                      minimumController.text.trim(),
-                    );
-
-                    if (name.isEmpty ||
-                        cost == null ||
-                        selling == null ||
-                        quantity == null ||
-                        minimum == null ||
-                        cost < 0 ||
-                        selling < 0 ||
-                        quantity < 0 ||
-                        minimum < 0) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter valid product details.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      ref.read(inventoryProvider).addProduct(
-                            name: name,
-                            sku: generatedSku,
-                            category: category,
-                            barcode: barcodeController.text.trim(),
-                            description:
-                                descriptionController.text.trim(),
-                            costPrice: cost,
-                            sellingPrice: selling,
-                            unit: unit,
-                            openingQuantity: quantity,
-                            minimumStock: minimum,
-                            supplier: supplierController.text.trim(),
-                            initialBranchId: selectedBranchId,
-                          );
-
-                      Navigator.pop(dialogContext);
-
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Product added successfully. Code: $generatedSku',
-                          ),
-                        ),
-                      );
-                    } catch (error) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save Product'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((_) {
-      nameController.dispose();
-      barcodeController.dispose();
-      descriptionController.dispose();
-      costController.dispose();
-      sellingController.dispose();
-      quantityController.dispose();
-      minimumController.dispose();
-      supplierController.dispose();
-    });
-  }
-
-  // ==========================================================
-  // EDIT PRODUCT
-  // ==========================================================
-
-  void editProduct(InventoryProduct product) {
-    final nameController = TextEditingController(text: product.name);
-    final barcodeController = TextEditingController(text: product.barcode);
-    final descriptionController =
-        TextEditingController(text: product.description);
-    final costController = TextEditingController(
-      text: product.costPrice.toString(),
-    );
-    final sellingController = TextEditingController(
-      text: product.sellingPrice.toString(),
-    );
-    final minimumController = TextEditingController(
-      text: product.minimumStock.toString(),
-    );
-    final supplierController = TextEditingController(
-      text: product.supplier,
-    );
-
-    String category = categories.contains(product.category) &&
-            product.category != 'All'
-        ? product.category
-        : 'Other';
-
-    String unit = units.contains(product.unit)
-        ? product.unit
-        : units.first;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: panel,
-              title: const Text(
-                'Edit Product',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _sectionTitle('Product Information'),
-
-                      _field(
-                        nameController,
-                        'Product Name *',
-                      ),
-
-                      TextFormField(
-                        initialValue: product.sku,
-                        readOnly: true,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: _decoration('Product Code').copyWith(
-                          suffixIcon: Icon(
-                            Icons.lock_outline,
-                            color: muted,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      _field(
-                        barcodeController,
-                        'Barcode',
-                      ),
-
-                      _field(
-                        descriptionController,
-                        'Product Description',
-                        maxLines: 3,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      DropdownButtonFormField<String>(
-                        value: category,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Category'),
-                        items: categories
-                            .where((item) => item != 'All')
-                            .map(
-                              (item) => DropdownMenuItem(
-                                value: item,
-                                child: Text(item),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => category = value);
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Pricing Information'),
-
-                      _field(
-                        costController,
-                        'Cost / Purchase Price *',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-
-                      _field(
-                        sellingController,
-                        'Selling Price *',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Product Settings'),
-
-                      DropdownButtonFormField<String>(
-                        value: unit,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Unit of Measurement'),
-                        items: units.map((item) {
-                          return DropdownMenuItem(
-                            value: item,
-                            child: Text(item),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => unit = value);
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      _field(
-                        minimumController,
-                        'Minimum Stock Alert Level *',
-                        keyboardType: TextInputType.number,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _sectionTitle('Supplier Information'),
-
-                      _field(
-                        supplierController,
-                        'Supplier Name',
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'Product code and current stock quantities cannot be changed from this form. Use Stock Management to adjust stock.',
-                        style: TextStyle(
-                          color: muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(color: muted),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    final name = nameController.text.trim();
-
-                    final cost = double.tryParse(
-                      costController.text.trim(),
-                    );
-
-                    final selling = double.tryParse(
-                      sellingController.text.trim(),
-                    );
-
-                    final minimum = int.tryParse(
-                      minimumController.text.trim(),
-                    );
-
-                    if (name.isEmpty ||
-                        cost == null ||
-                        selling == null ||
-                        minimum == null ||
-                        cost < 0 ||
-                        selling < 0 ||
-                        minimum < 0) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter valid product details.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      ref.read(inventoryProvider).updateProduct(
-                            productId: product.id,
-                            name: name,
-                            category: category,
-                            costPrice: cost,
-                            sellingPrice: selling,
-                            barcode: barcodeController.text.trim(),
-                            description:
-                                descriptionController.text.trim(),
-                            unit: unit,
-                            minimumStock: minimum,
-                            supplier: supplierController.text.trim(),
-                          );
-
-                      Navigator.pop(dialogContext);
-
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Product updated successfully.'),
-                        ),
-                      );
-                    } catch (error) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save Changes'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((_) {
-      nameController.dispose();
-      barcodeController.dispose();
-      descriptionController.dispose();
-      costController.dispose();
-      sellingController.dispose();
-      minimumController.dispose();
-      supplierController.dispose();
-    });
-  }
-
-  // ==========================================================
-  // UI HELPERS
-  // ==========================================================
-
   InputDecoration _decoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -675,6 +75,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       fillColor: const Color(0xFF080B12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+          color: muted.withOpacity(0.25),
+        ),
       ),
     );
   }
@@ -714,6 +120,620 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
+  Widget _readOnlyCode(String code, String label) {
+    return TextFormField(
+      initialValue: code,
+      readOnly: true,
+      style: const TextStyle(
+        color: Colors.white70,
+        fontWeight: FontWeight.bold,
+      ),
+      decoration: _decoration(label).copyWith(
+        suffixIcon: Icon(
+          Icons.lock_outline,
+          color: muted,
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // ADD PRODUCT
+  // ==========================================================
+
+  void addProduct() {
+    final inventory = ref.read(inventoryProvider);
+
+    final activeBranches = inventory.branches
+        .where((branch) => branch.active)
+        .toList();
+
+    final activeCategories = inventory.categories
+        .where((category) => category.active)
+        .toList();
+
+    if (activeBranches.isEmpty) {
+      showMessage('Please create an active branch first.');
+      return;
+    }
+
+    if (activeCategories.isEmpty) {
+      showMessage(
+        'Please create or activate a category first.',
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final barcodeController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final costController = TextEditingController();
+    final sellingController = TextEditingController();
+    final quantityController =
+        TextEditingController(text: '0');
+    final minimumController =
+        TextEditingController(text: '5');
+    final supplierController = TextEditingController();
+
+    final generatedSku = CodeGenerator.next(
+      prefix: 'PR',
+      existingCodes:
+          inventory.products.map((product) => product.sku),
+    );
+
+    String category = activeCategories.first.name;
+    String unit = 'Pieces';
+    String selectedBranchId = activeBranches.first.id;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Add New Product',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _sectionTitle('Basic Information'),
+
+                      _field(
+                        nameController,
+                        'Product Name *',
+                      ),
+
+                      _readOnlyCode(
+                        generatedSku,
+                        'Automatically Generated Product Code',
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        barcodeController,
+                        'Barcode',
+                      ),
+
+                      _field(
+                        descriptionController,
+                        'Product Description',
+                        maxLines: 3,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      DropdownButtonFormField<String>(
+                        value: category,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration: _decoration('Category *'),
+                        items: activeCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.name,
+                            child: Text(item.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              category = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Pricing Information'),
+
+                      _field(
+                        costController,
+                        'Cost / Purchase Price *',
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      _field(
+                        sellingController,
+                        'Selling Price *',
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Stock Information'),
+
+                      DropdownButtonFormField<String>(
+                        value: unit,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration:
+                            _decoration('Unit of Measurement'),
+                        items: units.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item,
+                            child: Text(item),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              unit = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        quantityController,
+                        'Opening Quantity *',
+                        keyboardType: TextInputType.number,
+                      ),
+
+                      _field(
+                        minimumController,
+                        'Minimum Stock Alert Level *',
+                        keyboardType: TextInputType.number,
+                      ),
+
+                      DropdownButtonFormField<String>(
+                        value: selectedBranchId,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration: _decoration('Initial Branch'),
+                        items: activeBranches.map((branch) {
+                          return DropdownMenuItem<String>(
+                            value: branch.id,
+                            child: Text(branch.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              selectedBranchId = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Supplier Information'),
+
+                      _field(
+                        supplierController,
+                        'Supplier Name',
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text(
+                        'The opening quantity will be assigned to the selected branch. You can allocate more stock to other branches later.',
+                        style: TextStyle(
+                          color: muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final cost = double.tryParse(
+                      costController.text.trim(),
+                    );
+                    final selling = double.tryParse(
+                      sellingController.text.trim(),
+                    );
+                    final quantity = int.tryParse(
+                      quantityController.text.trim(),
+                    );
+                    final minimum = int.tryParse(
+                      minimumController.text.trim(),
+                    );
+
+                    if (name.isEmpty ||
+                        cost == null ||
+                        selling == null ||
+                        quantity == null ||
+                        minimum == null ||
+                        cost < 0 ||
+                        selling < 0 ||
+                        quantity < 0 ||
+                        minimum < 0) {
+                      showMessage(
+                        'Please enter valid product details.',
+                      );
+                      return;
+                    }
+
+                    try {
+                      ref.read(inventoryProvider).addProduct(
+                            name: name,
+                            sku: generatedSku,
+                            category: category,
+                            barcode:
+                                barcodeController.text.trim(),
+                            description:
+                                descriptionController.text.trim(),
+                            costPrice: cost,
+                            sellingPrice: selling,
+                            unit: unit,
+                            openingQuantity: quantity,
+                            minimumStock: minimum,
+                            supplier:
+                                supplierController.text.trim(),
+                            initialBranchId: selectedBranchId,
+                          );
+
+                      Navigator.pop(dialogContext);
+
+                      showMessage(
+                        'Product added successfully. Code: $generatedSku',
+                      );
+                    } catch (error) {
+                      showMessage(
+                        error.toString().replaceFirst(
+                              'Exception: ',
+                              '',
+                            ),
+                      );
+                    }
+                  },
+                  child: const Text('Save Product'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      nameController.dispose();
+      barcodeController.dispose();
+      descriptionController.dispose();
+      costController.dispose();
+      sellingController.dispose();
+      quantityController.dispose();
+      minimumController.dispose();
+      supplierController.dispose();
+    });
+  }
+
+  // ==========================================================
+  // EDIT PRODUCT
+  // ==========================================================
+
+  void editProduct(InventoryProduct product) {
+    final inventory = ref.read(inventoryProvider);
+
+    final activeCategories = inventory.categories
+        .where((category) => category.active)
+        .toList();
+
+    if (activeCategories.isEmpty) {
+      showMessage(
+        'Please activate at least one category before editing.',
+      );
+      return;
+    }
+
+    final nameController =
+        TextEditingController(text: product.name);
+    final barcodeController =
+        TextEditingController(text: product.barcode);
+    final descriptionController =
+        TextEditingController(text: product.description);
+    final costController = TextEditingController(
+      text: product.costPrice.toString(),
+    );
+    final sellingController = TextEditingController(
+      text: product.sellingPrice.toString(),
+    );
+    final minimumController = TextEditingController(
+      text: product.minimumStock.toString(),
+    );
+    final supplierController =
+        TextEditingController(text: product.supplier);
+
+    final categoryNames =
+        activeCategories.map((item) => item.name).toList();
+
+    String category = categoryNames.contains(product.category)
+        ? product.category
+        : categoryNames.first;
+
+    String unit =
+        units.contains(product.unit) ? product.unit : units.first;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Edit Product',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _sectionTitle('Product Information'),
+
+                      _field(
+                        nameController,
+                        'Product Name *',
+                      ),
+
+                      _readOnlyCode(
+                        product.sku,
+                        'Product Code',
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        barcodeController,
+                        'Barcode',
+                      ),
+
+                      _field(
+                        descriptionController,
+                        'Product Description',
+                        maxLines: 3,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      DropdownButtonFormField<String>(
+                        value: category,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration: _decoration('Category *'),
+                        items: activeCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.name,
+                            child: Text(item.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              category = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Pricing Information'),
+
+                      _field(
+                        costController,
+                        'Cost / Purchase Price *',
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      _field(
+                        sellingController,
+                        'Selling Price *',
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Product Settings'),
+
+                      DropdownButtonFormField<String>(
+                        value: unit,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration:
+                            _decoration('Unit of Measurement'),
+                        items: units.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item,
+                            child: Text(item),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              unit = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        minimumController,
+                        'Minimum Stock Alert Level *',
+                        keyboardType: TextInputType.number,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Supplier Information'),
+
+                      _field(
+                        supplierController,
+                        'Supplier Name',
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text(
+                        'Product code and current stock quantities cannot be changed from this form. Use Stock Management to adjust stock.',
+                        style: TextStyle(
+                          color: muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final cost = double.tryParse(
+                      costController.text.trim(),
+                    );
+                    final selling = double.tryParse(
+                      sellingController.text.trim(),
+                    );
+                    final minimum = int.tryParse(
+                      minimumController.text.trim(),
+                    );
+
+                    if (name.isEmpty ||
+                        cost == null ||
+                        selling == null ||
+                        minimum == null ||
+                        cost < 0 ||
+                        selling < 0 ||
+                        minimum < 0) {
+                      showMessage(
+                        'Please enter valid product details.',
+                      );
+                      return;
+                    }
+
+                    try {
+                      ref.read(inventoryProvider).updateProduct(
+                            productId: product.id,
+                            name: name,
+                            category: category,
+                            costPrice: cost,
+                            sellingPrice: selling,
+                            barcode:
+                                barcodeController.text.trim(),
+                            description:
+                                descriptionController.text.trim(),
+                            unit: unit,
+                            minimumStock: minimum,
+                            supplier:
+                                supplierController.text.trim(),
+                          );
+
+                      Navigator.pop(dialogContext);
+                      showMessage(
+                        'Product updated successfully.',
+                      );
+                    } catch (error) {
+                      showMessage(
+                        error.toString().replaceFirst(
+                              'Exception: ',
+                              '',
+                            ),
+                      );
+                    }
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      nameController.dispose();
+      barcodeController.dispose();
+      descriptionController.dispose();
+      costController.dispose();
+      sellingController.dispose();
+      minimumController.dispose();
+      supplierController.dispose();
+    });
+  }
+
   // ==========================================================
   // PRODUCT DETAILS
   // ==========================================================
@@ -746,7 +766,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: muted.withValues(alpha: 0.5),
+                      color: muted.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -783,13 +803,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 13,
+                      ),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 22),
 
+                _detailRow('Product Code', product.sku),
+                _detailRow('Category', product.category),
                 _detailRow('Barcode', product.barcode),
                 _detailRow('Description', product.description),
                 _detailRow('Supplier', product.supplier),
@@ -850,12 +874,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
                             branch.name,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         Text(
@@ -914,7 +941,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final inventory = ref.watch(inventoryProvider);
-    final visibleProducts = getFilteredProducts(inventory.products);
+
+    // Categories are now read directly from shared inventory data.
+    final allCategories = inventory.categories;
+
+    final categoryNames = allCategories
+        .map((category) => category.name)
+        .toList();
+
+    // Keep inactive categories visible as filters so existing
+    // products assigned to them can still be found.
+    final filterCategories = ['All', ...categoryNames];
+
+    if (!filterCategories.contains(selectedCategory)) {
+      selectedCategory = 'All';
+    }
+
+    final visibleProducts =
+        getFilteredProducts(inventory.products);
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
@@ -943,9 +987,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onChanged: (_) => setState(() {}),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Search name, SKU, barcode or supplier...',
+                  hintText:
+                      'Search name, SKU, barcode or supplier...',
                   hintStyle: TextStyle(color: muted),
-                  prefixIcon: Icon(Icons.search, color: blue),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: blue,
+                  ),
                   filled: true,
                   fillColor: panel,
                   border: OutlineInputBorder(
@@ -959,20 +1007,25 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             SizedBox(
               height: 45,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ),
                 scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
+                itemCount: filterCategories.length,
                 separatorBuilder: (_, __) =>
                     const SizedBox(width: 8),
                 itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final selected = selectedCategory == category;
+                  final category = filterCategories[index];
+                  final selected =
+                      selectedCategory == category;
 
                   return ChoiceChip(
                     label: Text(category),
                     selected: selected,
                     onSelected: (_) {
-                      setState(() => selectedCategory = category);
+                      setState(() {
+                        selectedCategory = category;
+                      });
                     },
                     selectedColor: blue,
                     backgroundColor: panel,
@@ -986,9 +1039,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             ),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                20,
+                16,
+                12,
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Product Inventory',
@@ -1000,7 +1059,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ),
                   Text(
                     '${visibleProducts.length} Products',
-                    style: TextStyle(color: blue, fontSize: 12),
+                    style: TextStyle(
+                      color: blue,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -1026,23 +1088,31 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         final product = visibleProducts[index];
 
                         final lowStock =
-                            product.quantity <= product.minimumStock;
+                            product.quantity <=
+                                product.minimumStock;
 
                         return Card(
                           color: panel,
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(
+                            bottom: 12,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius:
+                                BorderRadius.circular(14),
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.all(14),
-                            onTap: () => showProductDetails(product),
+                            contentPadding:
+                                const EdgeInsets.all(14),
+                            onTap: () {
+                              showProductDetails(product);
+                            },
                             leading: Container(
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: blue.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
+                                color: blue.withOpacity(0.15),
+                                borderRadius:
+                                    BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 Icons.inventory_2_outlined,
@@ -1057,7 +1127,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               ),
                             ),
                             subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 7),
+                              padding: const EdgeInsets.only(
+                                top: 7,
+                              ),
                               child: Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
@@ -1104,8 +1176,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               ),
                             ),
                             trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.end,
                               children: [
                                 Text(
                                   '${product.quantity}',
