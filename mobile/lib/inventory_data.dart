@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'notifications_data.dart';
+import 'code_generator.dart';
 
 // ============================================================
 // PRODUCT MODEL
@@ -22,7 +23,6 @@ class InventoryProduct {
 
   int quantity;
 
-  // Branch ID -> quantity held at that branch.
   final Map<String, int> branchQuantities;
 
   InventoryProduct({
@@ -74,20 +74,24 @@ class InventoryCategory {
 // ============================================================
 
 class StockMovement {
+  final String referenceCode;
   final String productId;
   final String productName;
   final String type;
   final int quantity;
   final DateTime date;
   final String branchId;
+  final String? transferCode;
 
   StockMovement({
+    required this.referenceCode,
     required this.productId,
     required this.productName,
     required this.type,
     required this.quantity,
     required this.date,
     this.branchId = '1',
+    this.transferCode,
   });
 }
 
@@ -226,28 +230,28 @@ class InventoryData extends ChangeNotifier {
     InventoryCategory(
       id: 'CAT-ID-001',
       name: 'Electronics',
-      code: 'CAT-001',
+      code: 'CAT-0001',
       description: 'Electronic devices and equipment',
       active: true,
     ),
     InventoryCategory(
       id: 'CAT-ID-002',
       name: 'Accessories',
-      code: 'CAT-002',
+      code: 'CAT-0002',
       description: 'Computer and mobile accessories',
       active: true,
     ),
     InventoryCategory(
       id: 'CAT-ID-003',
       name: 'Furniture',
-      code: 'CAT-003',
+      code: 'CAT-0003',
       description: 'Office and home furniture',
       active: true,
     ),
     InventoryCategory(
       id: 'CAT-ID-004',
       name: 'Other',
-      code: 'CAT-004',
+      code: 'CAT-0004',
       description: 'Miscellaneous products',
       active: true,
     ),
@@ -261,7 +265,7 @@ class InventoryData extends ChangeNotifier {
     InventoryProduct(
       id: '1',
       name: 'Wireless Mouse',
-      sku: 'ELE-001',
+      sku: 'PR-0001',
       category: 'Electronics',
       sellingPrice: 850,
       costPrice: 600,
@@ -272,7 +276,7 @@ class InventoryData extends ChangeNotifier {
     InventoryProduct(
       id: '2',
       name: 'USB Keyboard',
-      sku: 'ACC-002',
+      sku: 'PR-0002',
       category: 'Accessories',
       sellingPrice: 1200,
       costPrice: 900,
@@ -283,7 +287,7 @@ class InventoryData extends ChangeNotifier {
     InventoryProduct(
       id: '3',
       name: 'HDMI Cable',
-      sku: 'ACC-003',
+      sku: 'PR-0003',
       category: 'Accessories',
       sellingPrice: 450,
       costPrice: 250,
@@ -294,7 +298,7 @@ class InventoryData extends ChangeNotifier {
     InventoryProduct(
       id: '4',
       name: 'Bluetooth Speaker',
-      sku: 'ELE-004',
+      sku: 'PR-0004',
       category: 'Electronics',
       sellingPrice: 2500,
       costPrice: 1800,
@@ -318,7 +322,7 @@ class InventoryData extends ChangeNotifier {
     InventoryBranch(
       id: '1',
       name: 'Main Branch',
-      code: 'BR-001',
+      code: 'BR-0001',
       city: 'Kathmandu',
       address: 'New Road, Kathmandu',
       phone: '9800000001',
@@ -329,7 +333,7 @@ class InventoryData extends ChangeNotifier {
     InventoryBranch(
       id: '2',
       name: 'Pokhara Branch',
-      code: 'BR-002',
+      code: 'BR-0002',
       city: 'Pokhara',
       address: 'Lakeside, Pokhara',
       phone: '9800000002',
@@ -340,7 +344,7 @@ class InventoryData extends ChangeNotifier {
     InventoryBranch(
       id: '3',
       name: 'Lalitpur Branch',
-      code: 'BR-003',
+      code: 'BR-0003',
       city: 'Lalitpur',
       address: 'Jawalakhel, Lalitpur',
       phone: '9800000003',
@@ -355,6 +359,48 @@ class InventoryData extends ChangeNotifier {
   // ----------------------------------------------------------
 
   final List<SaleRecord> _sales = [];
+
+  // ==========================================================
+  // CODE GENERATION HELPERS
+  // ==========================================================
+
+  String generateProductCode() {
+    return CodeGenerator.nextProduct(
+      _products.map((product) => product.sku),
+    );
+  }
+
+  String generateCategoryCode() {
+    return CodeGenerator.nextCategory(
+      _categories.map((category) => category.code),
+    );
+  }
+
+  String generateBranchCode() {
+    return CodeGenerator.nextBranch(
+      _branches.map((branch) => branch.code),
+    );
+  }
+
+  String generateStockMovementCode() {
+    return CodeGenerator.nextStockMovement(
+      _movements.map((movement) => movement.referenceCode),
+    );
+  }
+
+  String generateTransferCode() {
+    return CodeGenerator.nextTransfer(
+      _movements
+          .where((movement) => movement.transferCode != null)
+          .map((movement) => movement.transferCode!),
+    );
+  }
+
+  String generateInvoiceCode() {
+    return CodeGenerator.nextInvoice(
+      _sales.map((sale) => sale.invoiceNumber),
+    );
+  }
 
   // ==========================================================
   // PUBLIC DATA
@@ -488,14 +534,13 @@ class InventoryData extends ChangeNotifier {
 
   void addCategory({
     required String name,
-    required String code,
+    String? code,
     String description = '',
   }) {
     final cleanName = name.trim();
-    final cleanCode = code.trim();
 
-    if (cleanName.isEmpty || cleanCode.isEmpty) {
-      throw Exception('Category name and code are required.');
+    if (cleanName.isEmpty) {
+      throw Exception('Category name is required.');
     }
 
     final duplicateName = _categories.any(
@@ -506,6 +551,10 @@ class InventoryData extends ChangeNotifier {
     if (duplicateName) {
       throw Exception('A category with this name already exists.');
     }
+
+    final cleanCode = code?.trim().isNotEmpty == true
+        ? code!.trim()
+        : generateCategoryCode();
 
     final duplicateCode = _categories.any(
       (category) =>
@@ -557,7 +606,6 @@ class InventoryData extends ChangeNotifier {
     }
 
     final oldName = category.name;
-
     final index = _categories.indexOf(category);
 
     _categories[index] = InventoryCategory(
@@ -568,7 +616,6 @@ class InventoryData extends ChangeNotifier {
       active: category.active,
     );
 
-    // Update every product linked to the renamed category.
     for (var i = 0; i < _products.length; i++) {
       final product = _products[i];
 
@@ -683,12 +730,37 @@ class InventoryData extends ChangeNotifier {
   }
 
   // ==========================================================
+  // STOCK MOVEMENT HELPER
+  // ==========================================================
+
+  StockMovement _createMovement({
+    required String productId,
+    required String productName,
+    required String type,
+    required int quantity,
+    required String branchId,
+    String? transferCode,
+    DateTime? date,
+  }) {
+    return StockMovement(
+      referenceCode: generateStockMovementCode(),
+      productId: productId,
+      productName: productName,
+      type: type,
+      quantity: quantity,
+      date: date ?? DateTime.now(),
+      branchId: branchId,
+      transferCode: transferCode,
+    );
+  }
+
+  // ==========================================================
   // PRODUCT MANAGEMENT
   // ==========================================================
 
   void addProduct({
     required String name,
-    required String sku,
+    String? sku,
     required String category,
     required double sellingPrice,
     required int openingQuantity,
@@ -701,11 +773,10 @@ class InventoryData extends ChangeNotifier {
     String initialBranchId = '1',
   }) {
     final cleanName = name.trim();
-    final cleanSku = sku.trim();
     final cleanCategory = category.trim();
 
-    if (cleanName.isEmpty || cleanSku.isEmpty) {
-      throw Exception('Product name and SKU are required.');
+    if (cleanName.isEmpty) {
+      throw Exception('Product name is required.');
     }
 
     if (cleanCategory.isEmpty) {
@@ -728,6 +799,10 @@ class InventoryData extends ChangeNotifier {
         minimumStock < 0) {
       throw Exception('Prices and quantities cannot be negative.');
     }
+
+    final cleanSku = sku?.trim().isNotEmpty == true
+        ? sku!.trim()
+        : generateProductCode();
 
     final duplicate = _products.any(
       (product) =>
@@ -763,12 +838,11 @@ class InventoryData extends ChangeNotifier {
     if (openingQuantity > 0) {
       _movements.insert(
         0,
-        StockMovement(
+        _createMovement(
           productId: product.id,
           productName: product.name,
           type: 'Stock In',
           quantity: openingQuantity,
-          date: DateTime.now(),
           branchId: initialBranchId,
         ),
       );
@@ -867,12 +941,11 @@ class InventoryData extends ChangeNotifier {
 
     _movements.insert(
       0,
-      StockMovement(
+      _createMovement(
         productId: product.id,
         productName: product.name,
         type: 'Stock In',
         quantity: quantity,
-        date: DateTime.now(),
         branchId: branchId,
       ),
     );
@@ -924,6 +997,9 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Not enough stock at the source branch.');
     }
 
+    final transferCode = generateTransferCode();
+    final transferDate = DateTime.now();
+
     product.branchQuantities[fromBranchId] =
         sourceQuantity - quantity;
 
@@ -931,30 +1007,32 @@ class InventoryData extends ChangeNotifier {
         (product.branchQuantities[toBranchId] ?? 0) + quantity;
 
     _movements.insertAll(0, [
-      StockMovement(
+      _createMovement(
         productId: product.id,
         productName: product.name,
         type: 'Transfer Out',
         quantity: quantity,
-        date: DateTime.now(),
         branchId: fromBranchId,
+        transferCode: transferCode,
+        date: transferDate,
       ),
-      StockMovement(
+      _createMovement(
         productId: product.id,
         productName: product.name,
         type: 'Transfer In',
         quantity: quantity,
-        date: DateTime.now(),
         branchId: toBranchId,
+        transferCode: transferCode,
+        date: transferDate,
       ),
     ]);
 
     notificationCenter.add(
       title: 'Branch Transfer',
       message:
-          '$quantity ${product.unit} of ${product.name} transferred from ${fromBranch.name} to ${toBranch.name}.',
+          '$quantity ${product.unit} of ${product.name} transferred from ${fromBranch.name} to ${toBranch.name}. Reference: $transferCode.',
       category: NotificationCategory.stock,
-      relatedId: product.id,
+      relatedId: transferCode,
       action: 'stock',
     );
 
@@ -1000,24 +1078,22 @@ class InventoryData extends ChangeNotifier {
       product.quantity -= quantity;
     }
 
-    _movements.insert(
-      0,
-      StockMovement(
-        productId: product.id,
-        productName: product.name,
-        type: type,
-        quantity: quantity,
-        date: DateTime.now(),
-        branchId: branchId,
-      ),
+    final movement = _createMovement(
+      productId: product.id,
+      productName: product.name,
+      type: type,
+      quantity: quantity,
+      branchId: branchId,
     );
+
+    _movements.insert(0, movement);
 
     notificationCenter.add(
       title: type,
       message:
-          '$quantity ${product.unit} of ${product.name} recorded at ${branch.name}.',
+          '$quantity ${product.unit} of ${product.name} recorded at ${branch.name}. Reference: ${movement.referenceCode}.',
       category: NotificationCategory.stock,
-      relatedId: product.id,
+      relatedId: movement.referenceCode,
       action: 'stock',
     );
 
@@ -1054,7 +1130,6 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Discount, tax and payment cannot be negative.');
     }
 
-    // Combine quantities for repeated products.
     final requiredQuantities = <String, int>{};
 
     for (final item in items) {
@@ -1066,7 +1141,7 @@ class InventoryData extends ChangeNotifier {
           (requiredQuantities[item.productId] ?? 0) + item.quantity;
     }
 
-    // Validate all stock before making changes.
+    // Validate stock before changing any quantities.
     for (final entry in requiredQuantities.entries) {
       final product = findProduct(entry.key);
 
@@ -1109,10 +1184,10 @@ class InventoryData extends ChangeNotifier {
     }
 
     final total = subtotal - discount + tax;
+    final saleDate = DateTime.now();
 
     final sale = SaleRecord(
-      invoiceNumber:
-          'INV-${DateTime.now().microsecondsSinceEpoch}',
+      invoiceNumber: generateInvoiceCode(),
       branchId: branchId,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
@@ -1123,7 +1198,7 @@ class InventoryData extends ChangeNotifier {
       tax: tax,
       total: total,
       amountPaid: amountPaid,
-      date: DateTime.now(),
+      date: saleDate,
     );
 
     // Deduct stock once per product.
@@ -1137,24 +1212,23 @@ class InventoryData extends ChangeNotifier {
 
       product.quantity -= quantity;
 
-      _movements.insert(
-        0,
-        StockMovement(
-          productId: product.id,
-          productName: product.name,
-          type: 'Stock Out',
-          quantity: quantity,
-          date: sale.date,
-          branchId: branchId,
-        ),
+      final movement = _createMovement(
+        productId: product.id,
+        productName: product.name,
+        type: 'Stock Out',
+        quantity: quantity,
+        branchId: branchId,
+        date: saleDate,
       );
+
+      _movements.insert(0, movement);
 
       notificationCenter.add(
         title: 'Stock Out',
         message:
-            '$quantity ${product.unit} of ${product.name} sold at ${branch.name}.',
+            '$quantity ${product.unit} of ${product.name} sold at ${branch.name}. Reference: ${movement.referenceCode}.',
         category: NotificationCategory.stock,
-        relatedId: product.id,
+        relatedId: movement.referenceCode,
         action: 'stock',
       );
 
@@ -1194,7 +1268,7 @@ class InventoryData extends ChangeNotifier {
 
   void addBranch({
     required String name,
-    required String code,
+    String? code,
     required String city,
     required String address,
     required String phone,
@@ -1202,11 +1276,14 @@ class InventoryData extends ChangeNotifier {
     required String manager,
   }) {
     final cleanName = name.trim();
-    final cleanCode = code.trim();
 
-    if (cleanName.isEmpty || cleanCode.isEmpty) {
-      throw Exception('Branch name and code are required.');
+    if (cleanName.isEmpty) {
+      throw Exception('Branch name is required.');
     }
+
+    final cleanCode = code?.trim().isNotEmpty == true
+        ? code!.trim()
+        : generateBranchCode();
 
     final duplicate = _branches.any(
       (branch) =>
