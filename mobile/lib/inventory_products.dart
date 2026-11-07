@@ -1,9 +1,8 @@
-
 part of 'inventory_data.dart';
 
 extension InventoryProducts on InventoryData {
   // ==========================================================
-  // PRODUCT MANAGEMENT
+  // ADD PRODUCT
   // ==========================================================
 
   void addProduct({
@@ -25,13 +24,13 @@ extension InventoryProducts on InventoryData {
     }
 
     if (_products.any(
-      (e) => e.sku.toLowerCase() == sku.trim().toLowerCase(),
+      (item) => item.sku.toLowerCase() == sku.trim().toLowerCase(),
     )) {
       throw Exception('This SKU already exists.');
     }
 
     if (barcode.trim().isNotEmpty &&
-        _products.any((e) => e.barcode == barcode.trim())) {
+        _products.any((item) => item.barcode == barcode.trim())) {
       throw Exception('This barcode already exists.');
     }
 
@@ -59,7 +58,9 @@ extension InventoryProducts on InventoryData {
       minimumStock: minimumStock,
       supplier: supplier.trim(),
       quantity: openingQuantity,
-      branchQuantities: {initialBranchId: openingQuantity},
+      branchQuantities: {
+        initialBranchId: openingQuantity,
+      },
     );
 
     _products.add(product);
@@ -75,6 +76,10 @@ extension InventoryProducts on InventoryData {
 
     notifyListeners();
   }
+
+  // ==========================================================
+  // UPDATE PRODUCT
+  // ==========================================================
 
   void updateProduct({
     required String productId,
@@ -104,7 +109,8 @@ extension InventoryProducts on InventoryData {
 
     if (barcode.trim().isNotEmpty &&
         _products.any(
-          (e) => e.id != productId && e.barcode == barcode.trim(),
+          (item) =>
+              item.id != productId && item.barcode == barcode.trim(),
         )) {
       throw Exception('This barcode is already in use.');
     }
@@ -122,12 +128,17 @@ extension InventoryProducts on InventoryData {
     notifyListeners();
   }
 
+  // ==========================================================
+  // DELETE PRODUCT
+  // ==========================================================
+
   void deleteProduct(String productId) {
     if (getProductById(productId) == null) {
       throw Exception('Product not found.');
     }
 
-    _products.removeWhere((e) => e.id == productId);
+    _products.removeWhere((item) => item.id == productId);
+
     notifyListeners();
   }
 }
