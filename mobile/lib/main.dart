@@ -1,7 +1,11 @@
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'app_settings.dart';
 import 'dashboard_screen.dart';
 
 void main() {
@@ -12,15 +16,65 @@ void main() {
   );
 }
 
-class UniversalInventoryApp extends StatelessWidget {
+// MAIN APPLICATION
+
+class UniversalInventoryApp extends ConsumerWidget {
   const UniversalInventoryApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+
+    if (!settings.isLoaded) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Color(0xFF080B12),
+          body: Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF5798FF),
+            ),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Universal Inventory',
       debugShowCheckedModeBanner: false,
+
+      locale: settings.locale,
+
+      supportedLocales: const [
+        Locale('en'),
+        Locale('ne'),
+        Locale('hi'),
+        Locale('bn'),
+        Locale('zh'),
+        Locale('es'),
+        Locale('fr'),
+        Locale('ar'),
+      ],
+
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      themeMode: settings.themeMode,
+
       theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF4F6FA),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4D8DFF),
+          brightness: Brightness.light,
+        ),
+      ),
+
+      darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF080B12),
@@ -29,6 +83,7 @@ class UniversalInventoryApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
+
       home: const SplashScreen(),
     );
   }
@@ -91,7 +146,10 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        28, 24, 28, 30,
+                        28,
+                        24,
+                        28,
+                        30,
                       ),
                       child: Column(
                         mainAxisAlignment:
