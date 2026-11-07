@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'notifications_data.dart';
 
 // ============================================================
-// PRODUCT
+// PRODUCT MODEL
 // ============================================================
 
 class InventoryProduct {
@@ -50,7 +50,7 @@ class InventoryProduct {
 }
 
 // ============================================================
-// STOCK MOVEMENT
+// STOCK MOVEMENT MODEL
 // ============================================================
 
 class StockMovement {
@@ -72,7 +72,7 @@ class StockMovement {
 }
 
 // ============================================================
-// BRANCH
+// BRANCH MODEL
 // ============================================================
 
 class InventoryBranch {
@@ -173,7 +173,7 @@ class SaleRecord {
       (amountPaid - total).clamp(0, double.infinity).toDouble();
 
   double get profit =>
-      items.fold(0, (sum, item) => sum + item.profit);
+      items.fold(0.0, (sum, item) => sum + item.profit);
 }
 
 // ============================================================
@@ -182,7 +182,7 @@ class SaleRecord {
 
 class InventoryData extends ChangeNotifier {
   // ----------------------------------------------------------
-  // SHARED NOTIFICATION CENTER
+  // NOTIFICATIONS
   // ----------------------------------------------------------
 
   final NotificationCenter notificationCenter = NotificationCenter();
@@ -301,9 +301,9 @@ class InventoryData extends ChangeNotifier {
 
   final List<SaleRecord> _sales = [];
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // PUBLIC DATA
-  // ----------------------------------------------------------
+  // ==========================================================
 
   List<InventoryProduct> get products =>
       List.unmodifiable(_products);
@@ -320,19 +320,18 @@ class InventoryData extends ChangeNotifier {
   int get totalStock =>
       _products.fold(0, (total, product) => total + product.quantity);
 
-  int get lowStockCount =>
-      _products.where(
-        (product) => product.quantity <= product.minimumStock,
-      ).length;
+  int get lowStockCount => _products
+      .where((product) => product.quantity <= product.minimumStock)
+      .length;
 
   int get activeBranchCount =>
       _branches.where((branch) => branch.active).length;
 
   double get totalSales =>
-      _sales.fold(0, (total, sale) => total + sale.total);
+      _sales.fold(0.0, (total, sale) => total + sale.total);
 
   double get totalOutstanding =>
-      _sales.fold(0, (total, sale) => total + sale.balanceDue);
+      _sales.fold(0.0, (total, sale) => total + sale.balanceDue);
 
   double get totalSalesToday {
     final now = DateTime.now();
@@ -342,7 +341,7 @@ class InventoryData extends ChangeNotifier {
             sale.date.year == now.year &&
             sale.date.month == now.month &&
             sale.date.day == now.day)
-        .fold(0, (total, sale) => total + sale.total);
+        .fold(0.0, (total, sale) => total + sale.total);
   }
 
   int get salesCountToday {
@@ -354,9 +353,9 @@ class InventoryData extends ChangeNotifier {
         sale.date.day == now.day).length;
   }
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // FINDERS
-  // ----------------------------------------------------------
+  // ==========================================================
 
   InventoryProduct? findProduct(String productId) {
     for (final product in _products) {
@@ -387,7 +386,7 @@ class InventoryData extends ChangeNotifier {
   }
 
   // ==========================================================
-  // AUTOMATIC STOCK ALERTS
+  // STOCK ALERTS
   // ==========================================================
 
   void _checkStockAlerts(
@@ -433,16 +432,23 @@ class InventoryData extends ChangeNotifier {
     String supplier = '',
     String initialBranchId = '1',
   }) {
-    if (name.trim().isEmpty || sku.trim().isEmpty) {
+    final cleanName = name.trim();
+    final cleanSku = sku.trim();
+
+    if (cleanName.isEmpty || cleanSku.isEmpty) {
       throw Exception('Product name and SKU are required.');
     }
 
-    if (sellingPrice < 0 || costPrice < 0 || openingQuantity < 0) {
-      throw Exception('Prices and quantity cannot be negative.');
+    if (sellingPrice < 0 ||
+        costPrice < 0 ||
+        openingQuantity < 0 ||
+        minimumStock < 0) {
+      throw Exception('Prices and quantities cannot be negative.');
     }
 
     final duplicate = _products.any(
-      (product) => product.sku.toLowerCase() == sku.toLowerCase(),
+      (product) =>
+          product.sku.trim().toLowerCase() == cleanSku.toLowerCase(),
     );
 
     if (duplicate) {
@@ -455,16 +461,16 @@ class InventoryData extends ChangeNotifier {
 
     final product = InventoryProduct(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: name.trim(),
-      sku: sku.trim(),
-      category: category,
-      barcode: barcode,
-      description: description,
+      name: cleanName,
+      sku: cleanSku,
+      category: category.trim(),
+      barcode: barcode.trim(),
+      description: description.trim(),
       costPrice: costPrice,
       sellingPrice: sellingPrice,
-      unit: unit,
+      unit: unit.trim().isEmpty ? 'Pieces' : unit.trim(),
       minimumStock: minimumStock,
-      supplier: supplier,
+      supplier: supplier.trim(),
       quantity: openingQuantity,
       branchQuantities: {initialBranchId: openingQuantity},
     );
@@ -488,6 +494,65 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ----------------------------------------------------------
+  // UPDATE PRODUCT DETAILS
+  // ----------------------------------------------------------
+
+  void updateProduct({
+    required String productId,
+    required String name,
+    required String category,
+    required double costPrice,
+    required double sellingPrice,
+    required String barcode,
+    required String description,
+    required String unit,
+    required int minimumStock,
+    required String supplier,
+  }) {
+    final index = _products.indexWhere(
+      (product) => product.id == productId,
+    );
+
+    if (index == -1) {
+      throw Exception('Product not found.');
+    }
+
+    final oldProduct = _products[index];
+    final cleanName = name.trim();
+
+    if (cleanName.isEmpty) {
+      throw Exception('Product name is required.');
+    }
+
+    if (costPrice < 0 ||
+        sellingPrice < 0 ||
+        minimumStock < 0) {
+      throw Exception('Prices and minimum stock cannot be negative.');
+    }
+
+    // SKU, quantity and branch stock remain unchanged.
+    _products[index] = InventoryProduct(
+      id: oldProduct.id,
+      name: cleanName,
+      sku: oldProduct.sku,
+      category: category.trim(),
+      barcode: barcode.trim(),
+      description: description.trim(),
+      costPrice: costPrice,
+      sellingPrice: sellingPrice,
+      unit: unit.trim().isEmpty ? oldProduct.unit : unit.trim(),
+      minimumStock: minimumStock,
+      supplier: supplier.trim(),
+      quantity: oldProduct.quantity,
+      branchQuantities: Map<String, int>.from(
+        oldProduct.branchQuantities,
+      ),
+    );
+
+    notifyListeners();
+  }
+
   // ==========================================================
   // STOCK ALLOCATION
   // ==========================================================
@@ -502,7 +567,6 @@ class InventoryData extends ChangeNotifier {
     }
 
     final product = findProduct(productId);
-
     if (product == null) throw Exception('Product not found.');
 
     final branch = findBranch(branchId);
@@ -556,7 +620,6 @@ class InventoryData extends ChangeNotifier {
     }
 
     final product = findProduct(productId);
-
     if (product == null) throw Exception('Product not found.');
 
     final fromBranch = findBranch(fromBranchId);
@@ -624,16 +687,15 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Quantity must be greater than zero.');
     }
 
-    final product = findProduct(productId);
+    if (type != 'Stock In' && type != 'Stock Out') {
+      throw Exception('Invalid stock movement type.');
+    }
 
+    final product = findProduct(productId);
     if (product == null) throw Exception('Product not found.');
 
     final branch = findBranch(branchId);
     if (branch == null) throw Exception('Branch not found.');
-
-    if (type != 'Stock In' && type != 'Stock Out') {
-      throw Exception('Invalid stock movement type.');
-    }
 
     final branchStock = product.branchQuantities[branchId] ?? 0;
     final previousQuantity = product.quantity;
@@ -704,7 +766,7 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Discount, tax and payment cannot be negative.');
     }
 
-    // Validate and combine quantities for repeated products.
+    // Combine quantities for repeated products.
     final requiredQuantities = <String, int>{};
 
     for (final item in items) {
@@ -716,7 +778,7 @@ class InventoryData extends ChangeNotifier {
           (requiredQuantities[item.productId] ?? 0) + item.quantity;
     }
 
-    // Check all products and stock before changing anything.
+    // Validate all stock before making changes.
     for (final entry in requiredQuantities.entries) {
       final product = findProduct(entry.key);
 
@@ -813,7 +875,6 @@ class InventoryData extends ChangeNotifier {
 
     _sales.insert(0, sale);
 
-    // New sale notification.
     notificationCenter.add(
       title: 'New Sale',
       message:
@@ -823,7 +884,6 @@ class InventoryData extends ChangeNotifier {
       action: 'sale',
     );
 
-    // Pending payment notification.
     if (sale.balanceDue > 0) {
       notificationCenter.add(
         title: 'Payment Due',
@@ -853,8 +913,16 @@ class InventoryData extends ChangeNotifier {
     required String email,
     required String manager,
   }) {
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
+      throw Exception('Branch name and code are required.');
+    }
+
     final duplicate = _branches.any(
-      (branch) => branch.code.toLowerCase() == code.toLowerCase(),
+      (branch) =>
+          branch.code.trim().toLowerCase() == cleanCode.toLowerCase(),
     );
 
     if (duplicate) {
@@ -864,13 +932,13 @@ class InventoryData extends ChangeNotifier {
     _branches.add(
       InventoryBranch(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: name,
-        code: code,
-        city: city,
-        address: address,
-        phone: phone,
-        email: email,
-        manager: manager,
+        name: cleanName,
+        code: cleanCode,
+        city: city.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        manager: manager.trim(),
         active: true,
       ),
     );
@@ -890,11 +958,20 @@ class InventoryData extends ChangeNotifier {
   }) {
     final index = _branches.indexWhere((branch) => branch.id == id);
 
-    if (index == -1) throw Exception('Branch not found.');
+    if (index == -1) {
+      throw Exception('Branch not found.');
+    }
+
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
+      throw Exception('Branch name and code are required.');
+    }
 
     final duplicate = _branches.any(
       (branch) =>
-          branch.code.toLowerCase() == code.toLowerCase() &&
+          branch.code.trim().toLowerCase() == cleanCode.toLowerCase() &&
           branch.id != id,
     );
 
@@ -906,13 +983,13 @@ class InventoryData extends ChangeNotifier {
 
     _branches[index] = InventoryBranch(
       id: oldBranch.id,
-      name: name,
-      code: code,
-      city: city,
-      address: address,
-      phone: phone,
-      email: email,
-      manager: manager,
+      name: cleanName,
+      code: cleanCode,
+      city: city.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      manager: manager.trim(),
       active: oldBranch.active,
     );
 
@@ -920,12 +997,14 @@ class InventoryData extends ChangeNotifier {
   }
 
   void toggleBranchStatus(String id) {
-    final branch = _branches.firstWhere(
-      (branch) => branch.id == id,
-      orElse: () => throw Exception('Branch not found.'),
-    );
+    final index = _branches.indexWhere((branch) => branch.id == id);
 
-    branch.active = !branch.active;
+    if (index == -1) {
+      throw Exception('Branch not found.');
+    }
+
+    _branches[index].active = !_branches[index].active;
+
     notifyListeners();
   }
 }
