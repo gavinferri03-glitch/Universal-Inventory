@@ -1,5 +1,6 @@
 
 import 'package:flutter/foundation.dart';
+import 'inventory_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'notifications_data.dart';
 import 'code_generator.dart';
