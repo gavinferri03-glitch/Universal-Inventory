@@ -1,38 +1,37 @@
-
 part of 'inventory_data.dart';
 
-extension InventoryBranches on InventoryData {
-  // BRANCH MANAGEMENT
+extension InventoryCategories on InventoryData {
+  // ==========================================================
+  // ADD CATEGORY
+  // ==========================================================
 
-  void addBranch({
+  void addCategory({
     required String name,
     required String code,
-    String city = '',
-    String address = '',
-    String phone = '',
-    String email = '',
-    String manager = '',
+    String description = '',
   }) {
     if (name.trim().isEmpty || code.trim().isEmpty) {
-      throw Exception('Branch name and code are required.');
+      throw Exception('Category name and code are required.');
     }
 
-    if (_branches.any(
-      (e) => e.code.toLowerCase() == code.trim().toLowerCase(),
+    if (_categories.any(
+      (item) => item.name.toLowerCase() == name.trim().toLowerCase(),
     )) {
-      throw Exception('Branch code already exists.');
+      throw Exception('Category name already exists.');
     }
 
-    _branches.add(
-      InventoryBranch(
+    if (_categories.any(
+      (item) => item.code.toLowerCase() == code.trim().toLowerCase(),
+    )) {
+      throw Exception('Category code already exists.');
+    }
+
+    _categories.add(
+      InventoryCategory(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         name: name.trim(),
         code: code.trim(),
-        city: city.trim(),
-        address: address.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        manager: manager.trim(),
+        description: description.trim(),
         active: true,
       ),
     );
@@ -40,71 +39,97 @@ extension InventoryBranches on InventoryData {
     notifyListeners();
   }
 
-  void updateBranch({
-    required String id,
+  // ==========================================================
+  // UPDATE CATEGORY
+  // ==========================================================
+
+  void updateCategory({
+    required String categoryId,
     required String name,
-    required String code,
-    String city = '',
-    String address = '',
-    String phone = '',
-    String email = '',
-    String manager = '',
+    String description = '',
   }) {
-    final branch = getBranchById(id);
+    final category = getCategoryById(categoryId);
 
-    if (branch == null) {
-      throw Exception('Branch not found.');
+    if (category == null) {
+      throw Exception('Category not found.');
     }
 
-    if (name.trim().isEmpty || code.trim().isEmpty) {
-      throw Exception('Branch name and code are required.');
+    if (name.trim().isEmpty) {
+      throw Exception('Category name is required.');
     }
 
-    if (_branches.any(
-      (e) =>
-          e.id != id &&
-          e.code.toLowerCase() == code.trim().toLowerCase(),
+    if (_categories.any(
+      (item) =>
+          item.id != categoryId &&
+          item.name.toLowerCase() == name.trim().toLowerCase(),
     )) {
-      throw Exception('Branch code already exists.');
+      throw Exception('Category name already exists.');
     }
 
-    branch.name = name.trim();
-    branch.code = code.trim();
-    branch.city = city.trim();
-    branch.address = address.trim();
-    branch.phone = phone.trim();
-    branch.email = email.trim();
-    branch.manager = manager.trim();
+    category.name = name.trim();
+    category.description = description.trim();
 
     notifyListeners();
   }
 
-  int get activeBranchCount =>
-      _branches.where((e) => e.active).length;
+  // ==========================================================
+  // CATEGORY SUMMARY
+  // ==========================================================
 
-  void deleteBranch(String branchId) {
-    if (getBranchById(branchId) == null) {
-      throw Exception('Branch not found.');
+  int get activeCategoryCount =>
+      _categories.where((item) => item.active).length;
+
+  int getCategoryProductCount(String categoryId) {
+    final category = getCategoryById(categoryId);
+
+    if (category == null) return 0;
+
+    return _products
+        .where(
+          (item) =>
+              item.category.toLowerCase() ==
+              category.name.toLowerCase(),
+        )
+        .length;
+  }
+
+  // ==========================================================
+  // DELETE CATEGORY
+  // ==========================================================
+
+  void deleteCategory(String categoryId) {
+    final category = getCategoryById(categoryId);
+
+    if (category == null) {
+      throw Exception('Category not found.');
     }
 
     if (_products.any(
-      (e) => (e.branchQuantities[branchId] ?? 0) > 0,
+      (item) =>
+          item.category.toLowerCase() ==
+          category.name.toLowerCase(),
     )) {
-      throw Exception('Transfer all stock before deleting this branch.');
+      throw Exception('Cannot delete a category containing products.');
     }
 
-    _branches.removeWhere((e) => e.id == branchId);
+    _categories.removeWhere((item) => item.id == categoryId);
+
     notifyListeners();
   }
 
-  void toggleBranchStatus(String branchId) {
-    final branch = getBranchById(branchId);
+  // ==========================================================
+  // CATEGORY STATUS
+  // ==========================================================
 
-    if (branch == null) {
-      throw Exception('Branch not found.');
+  void toggleCategoryStatus(String categoryId) {
+    final category = getCategoryById(categoryId);
+
+    if (category == null) {
+      throw Exception('Category not found.');
     }
 
-    branch.active = !branch.active;
+    category.active = !category.active;
+
     notifyListeners();
   }
 }
