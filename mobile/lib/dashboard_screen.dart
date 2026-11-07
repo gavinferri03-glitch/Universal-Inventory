@@ -15,6 +15,7 @@ import 'categories_screen.dart';
 import 'allocation_screen.dart';
 import 'suppliers_screen.dart';
 import 'help_screen.dart';
+import 'transfer_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -31,6 +32,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const Color cardColor = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
+  static const Color green = Color(0xFF45C99A);
+  static const Color orange = Color(0xFFFFB454);
+  static const Color purple = Color(0xFFB28AFF);
 
   Future<void> _openNotifications() async {
     await Navigator.push(
@@ -44,7 +48,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openPage(int index) async {
     if (index == 0) {
       Navigator.popUntil(context, (route) => route.isFirst);
-      if (mounted) setState(() => selectedIndex = 0);
+      if (mounted) {
+        setState(() => selectedIndex = 0);
+      }
       return;
     }
 
@@ -79,6 +85,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Future<void> _openDestination(Widget destination) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => destination),
+    );
+
+    if (mounted) {
+      setState(() => selectedIndex = 0);
+    }
+  }
+
   Future<void> _openMenuPage(String item, int? page) async {
     Navigator.pop(context);
 
@@ -87,47 +104,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return;
     }
 
-    Widget? destination;
-
     switch (item) {
       case 'Business Profile':
-        destination = const BusinessProfileScreen();
+        await _openDestination(const BusinessProfileScreen());
         break;
+
       case 'Branches':
-        destination = const BranchesScreen();
+        await _openDestination(const BranchesScreen());
         break;
+
       case 'Users':
-        destination = const UsersScreen();
+        await _openDestination(const UsersScreen());
         break;
+
       case 'Categories':
-        destination = const CategoriesScreen();
+        await _openDestination(const CategoriesScreen());
         break;
+
       case 'Allocation':
-        destination = const AllocationScreen();
+        await _openDestination(const AllocationScreen());
         break;
+
       case 'Suppliers':
-        destination = const SuppliersScreen();
+        await _openDestination(const SuppliersScreen());
         break;
-      case 'User Guide':
-      case 'FAQs':
-      case 'Contact Support':
-        destination = const HelpScreen();
+
+      case 'Transfers':
+        await _openDestination(const TransferScreen());
         break;
-    }
 
-    if (destination != null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => destination!),
-      );
+      case 'Help':
+        await _openDestination(const HelpScreen());
+        break;
 
-      if (mounted) {
-        setState(() => selectedIndex = 0);
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$item will be added soon.')),
-      );
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$item will be added soon.')),
+        );
     }
   }
 
@@ -215,6 +228,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
+
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 14),
               padding: const EdgeInsets.all(13),
@@ -252,7 +266,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 12),
+
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
@@ -266,6 +282,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Users', null),
                     ],
                   ),
+
                   _menuGroup(
                     'Product Master',
                     Icons.inventory_2_outlined,
@@ -276,6 +293,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Suppliers', null),
                     ],
                   ),
+
                   _menuGroup(
                     'Stock',
                     Icons.inventory_outlined,
@@ -283,9 +301,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Stock In', 2),
                       _menuTile('Stock Out', 2),
                       _menuTile('Transfers', null),
-                      _menuTile('Adjustments', null),
                     ],
                   ),
+
                   _menuGroup(
                     'Sales',
                     Icons.shopping_cart_outlined,
@@ -296,19 +314,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Returns', null),
                     ],
                   ),
-                  _menuGroup(
-                    'Help',
-                    Icons.help_outline,
-                    [
-                      _menuTile('User Guide', null),
-                      _menuTile('FAQs', null),
-                      _menuTile('Contact Support', null),
-                    ],
+
+                  // Help is now a single direct menu item.
+                  ListTile(
+                    leading: const Icon(
+                      Icons.help_outline,
+                      color: blue,
+                    ),
+                    title: const Text(
+                      'Help',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    onTap: () => _openMenuPage('Help', null),
                   ),
                 ],
               ),
             ),
+
             const Divider(color: Color(0xFF26364D)),
+
             ListTile(
               leading: const Icon(
                 Icons.settings_outlined,
@@ -320,6 +348,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onTap: () => _openMenuPage('Settings', 4),
             ),
+
             const SizedBox(height: 8),
           ],
         ),
@@ -348,7 +377,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 13),
           Text(
             title,
-            style: const TextStyle(color: muted, fontSize: 11),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -366,7 +398,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(color: muted, fontSize: 10),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -454,6 +489,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -471,7 +507,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
+
           const SizedBox(height: 10),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -488,7 +526,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
+
           const SizedBox(height: 10),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -522,7 +562,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           const Icon(
             Icons.warning_amber_rounded,
-            color: Color(0xFFFFB454),
+            color: orange,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -550,7 +590,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Text(
             '${product.quantity} left',
             style: const TextStyle(
-              color: Color(0xFFFFB454),
+              color: orange,
               fontWeight: FontWeight.bold,
               fontSize: 12,
             ),
@@ -568,9 +608,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         movement.type == 'Transfer In';
 
     final color = isIn
-        ? const Color(0xFF45C99A)
+        ? green
         : movement.type == 'Stock Out'
-            ? const Color(0xFFFFB454)
+            ? orange
             : blue;
 
     final icon = isIn
@@ -629,7 +669,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           Text(
             time,
-            style: const TextStyle(color: muted, fontSize: 10),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -647,12 +690,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         .toList();
 
     final recentMovements = inventory.movements.take(5).toList();
-
     final unreadCount = inventory.notificationCenter.unreadCount;
 
     return Scaffold(
       backgroundColor: background,
       drawer: _buildDrawer(),
+
       appBar: AppBar(
         backgroundColor: background,
         elevation: 0,
@@ -715,6 +758,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -734,7 +778,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 22),
+
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -755,14 +801,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     value: '${inventory.totalStock}',
                     subtitle: 'Units available',
                     icon: Icons.all_inbox_outlined,
-                    color: const Color(0xFF45C99A),
+                    color: green,
                   ),
                   _summaryCard(
                     title: 'Low Stock Items',
                     value: '${inventory.lowStockCount}',
                     subtitle: 'Need attention',
                     icon: Icons.warning_amber_rounded,
-                    color: const Color(0xFFFFB454),
+                    color: orange,
                   ),
                   _summaryCard(
                     title: "Today's Sales",
@@ -770,13 +816,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         'Rs. ${inventory.totalSalesToday.toStringAsFixed(0)}',
                     subtitle: '${inventory.salesCountToday} orders today',
                     icon: Icons.trending_up,
-                    color: const Color(0xFFB28AFF),
+                    color: purple,
                   ),
                 ],
               ),
+
               const SizedBox(height: 28),
+
               _sectionTitle('Quick Actions'),
               const SizedBox(height: 13),
+
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -794,26 +843,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   _quickAction(
                     title: 'Stock In',
                     icon: Icons.call_received,
-                    color: const Color(0xFF45C99A),
+                    color: green,
                     onTap: () => _openPage(2),
                   ),
                   _quickAction(
                     title: 'Stock Out',
                     icon: Icons.call_made,
-                    color: const Color(0xFFFFB454),
+                    color: orange,
                     onTap: () => _openPage(2),
                   ),
                   _quickAction(
                     title: 'Create Sale',
                     icon: Icons.shopping_cart_outlined,
-                    color: const Color(0xFFB28AFF),
+                    color: purple,
                     onTap: () => _openPage(3),
                   ),
                 ],
               ),
+
               const SizedBox(height: 28),
+
               _salesOverview(inventory),
+
               const SizedBox(height: 28),
+
               _sectionTitle(
                 'Low Stock Alerts',
                 trailing: TextButton(
@@ -821,7 +874,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: const Text('View products'),
                 ),
               ),
+
               const SizedBox(height: 8),
+
               if (lowStockProducts.isEmpty)
                 Container(
                   width: double.infinity,
@@ -837,9 +892,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 )
               else
                 ...lowStockProducts.take(5).map(_stockAlert),
+
               const SizedBox(height: 20),
+
               _sectionTitle('Recent Activity'),
               const SizedBox(height: 16),
+
               if (recentMovements.isEmpty)
                 const Text(
                   'No stock activity recorded yet.',
@@ -849,11 +907,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ...recentMovements.map(
                   (movement) => _activityItem(movement, inventory),
                 ),
+
               const SizedBox(height: 20),
             ],
           ),
         ),
       ),
+
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
         indicatorColor: blue.withValues(alpha: 0.18),
