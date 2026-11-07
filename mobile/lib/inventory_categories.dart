@@ -1,27 +1,26 @@
 part of 'inventory_data.dart';
 
 extension InventoryCategories on InventoryData {
-  // ==========================================================
-  // ADD CATEGORY
-  // ==========================================================
-
   void addCategory({
     required String name,
     required String code,
     String description = '',
   }) {
-    if (name.trim().isEmpty || code.trim().isEmpty) {
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
       throw Exception('Category name and code are required.');
     }
 
     if (_categories.any(
-      (item) => item.name.toLowerCase() == name.trim().toLowerCase(),
+      (item) => item.name.toLowerCase() == cleanName.toLowerCase(),
     )) {
       throw Exception('Category name already exists.');
     }
 
     if (_categories.any(
-      (item) => item.code.toLowerCase() == code.trim().toLowerCase(),
+      (item) => item.code.toLowerCase() == cleanCode.toLowerCase(),
     )) {
       throw Exception('Category code already exists.');
     }
@@ -29,8 +28,8 @@ extension InventoryCategories on InventoryData {
     _categories.add(
       InventoryCategory(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: name.trim(),
-        code: code.trim(),
+        name: cleanName,
+        code: cleanCode,
         description: description.trim(),
         active: true,
       ),
@@ -39,42 +38,45 @@ extension InventoryCategories on InventoryData {
     notifyListeners();
   }
 
-  // ==========================================================
-  // UPDATE CATEGORY
-  // ==========================================================
-
   void updateCategory({
     required String categoryId,
     required String name,
     String description = '',
   }) {
-    final category = getCategoryById(categoryId);
+    final index = _categories.indexWhere(
+      (item) => item.id == categoryId,
+    );
 
-    if (category == null) {
+    if (index == -1) {
       throw Exception('Category not found.');
     }
 
-    if (name.trim().isEmpty) {
+    final cleanName = name.trim();
+
+    if (cleanName.isEmpty) {
       throw Exception('Category name is required.');
     }
 
     if (_categories.any(
       (item) =>
           item.id != categoryId &&
-          item.name.toLowerCase() == name.trim().toLowerCase(),
+          item.name.toLowerCase() == cleanName.toLowerCase(),
     )) {
       throw Exception('Category name already exists.');
     }
 
-    category.name = name.trim();
-    category.description = description.trim();
+    final oldCategory = _categories[index];
+
+    _categories[index] = InventoryCategory(
+      id: oldCategory.id,
+      name: cleanName,
+      code: oldCategory.code,
+      description: description.trim(),
+      active: oldCategory.active,
+    );
 
     notifyListeners();
   }
-
-  // ==========================================================
-  // CATEGORY SUMMARY
-  // ==========================================================
 
   int get activeCategoryCount =>
       _categories.where((item) => item.active).length;
@@ -93,10 +95,6 @@ extension InventoryCategories on InventoryData {
         .length;
   }
 
-  // ==========================================================
-  // DELETE CATEGORY
-  // ==========================================================
-
   void deleteCategory(String categoryId) {
     final category = getCategoryById(categoryId);
 
@@ -113,22 +111,27 @@ extension InventoryCategories on InventoryData {
     }
 
     _categories.removeWhere((item) => item.id == categoryId);
-
     notifyListeners();
   }
 
-  // ==========================================================
-  // CATEGORY STATUS
-  // ==========================================================
-
   void toggleCategoryStatus(String categoryId) {
-    final category = getCategoryById(categoryId);
+    final index = _categories.indexWhere(
+      (item) => item.id == categoryId,
+    );
 
-    if (category == null) {
+    if (index == -1) {
       throw Exception('Category not found.');
     }
 
-    category.active = !category.active;
+    final oldCategory = _categories[index];
+
+    _categories[index] = InventoryCategory(
+      id: oldCategory.id,
+      name: oldCategory.name,
+      code: oldCategory.code,
+      description: oldCategory.description,
+      active: !oldCategory.active,
+    );
 
     notifyListeners();
   }
