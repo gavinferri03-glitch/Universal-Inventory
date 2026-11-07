@@ -1,206 +1,111 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'inventory_data.dart';
-import 'list_tools.dart';
+import 'inventory_models.dart';
+import 'inventory_purchase_data.dart';
+import 'inventory_purchase_provider.dart';
 
-class SalesScreen extends ConsumerStatefulWidget {
-  const SalesScreen({super.key});
+class StockScreen extends ConsumerStatefulWidget {
+  const StockScreen({super.key});
 
   @override
-  ConsumerState<SalesScreen> createState() => _SalesScreenState();
+  ConsumerState<StockScreen> createState() => _StockScreenState();
 }
 
-class _SalesScreenState extends ConsumerState<SalesScreen> {
-  static const Color background = Color(0xFF080B12);
-  static const Color panel = Color(0xFF121D2D);
+class _StockScreenState extends ConsumerState<StockScreen> {
   static const Color blue = Color(0xFF5798FF);
+  static const Color green = Color(0xFF45C99A);
+  static const Color orange = Color(0xFFFFB454);
+  static const Color panel = Color(0xFF121D2D);
   static const Color muted = Color(0xFF91A4BE);
 
-  String? selectedBranchId;
-  final List<SalesCartItem> cart = [];
-
-  final customerController = TextEditingController();
+  final supplierController = TextEditingController();
   final phoneController = TextEditingController();
+  final addressController = TextEditingController();
+  final invoiceController = TextEditingController();
   final discountController = TextEditingController(text: '0');
   final taxController = TextEditingController(text: '0');
   final paidController = TextEditingController(text: '0');
+  final purchaseNotesController = TextEditingController();
 
-  // Sales history search, sorting and filtering.
-  final TextEditingController salesSearchController =
-      TextEditingController();
+  final returnReasonController = TextEditingController();
+  final returnNotesController = TextEditingController();
 
-  String salesSearch = '';
-  String salesSort = 'newest';
-  String salesFilter = 'all';
+  String purchasePaymentMethod = 'Cash';
+  String returnSettlement = 'Supplier Credit';
 
-  String paymentMethod = 'Cash';
+  final List<PurchaseOrderLine> purchaseItems = [];
+  final List<SupplierReturnLine> returnItems = [];
 
-  final Map<String, String> salesSortOptions = {
-    'newest': 'Newest first',
-    'oldest': 'Oldest first',
-    'total_high': 'Highest sale value',
-    'total_low': 'Lowest sale value',
-    'invoice_az': 'Invoice A–Z',
-    'invoice_za': 'Invoice Z–A',
-  };
-
-  final Map<String, String> salesFilterOptions = {
-    'all': 'All sales',
-    'cash': 'Cash',
-    'qr': 'QR',
-    'card': 'Card',
-    'bank': 'Bank Transfer',
-    'credit': 'Credit',
-    'due': 'Outstanding payments',
-    'paid': 'Fully paid',
-  };
-
-  @override
-  void dispose() {
-    customerController.dispose();
-    phoneController.dispose();
-    discountController.dispose();
-    taxController.dispose();
-    paidController.dispose();
-    salesSearchController.dispose();
-    super.dispose();
+  String formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year} '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
   }
-
-  double get subtotal =>
-      cart.fold(0, (sum, item) => sum + item.quantity * item.unitPrice);
-
-  double get discount => double.tryParse(discountController.text) ?? 0;
-
-  double get tax => double.tryParse(taxController.text) ?? 0;
-
-  double get total => subtotal - discount + tax;
 
   String money(double value) => 'Rs. ${value.toStringAsFixed(2)}';
 
-  void showMessage(String message, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: error ? Colors.red.shade700 : const Color(0xFF263B5B),
+  InputDecoration decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: muted),
+      filled: true,
+      fillColor: const Color(0xFF080B12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // SALES HISTORY FILTERING AND SORTING
-  // ------------------------------------------------------------
-
-  List<SaleRecord> getSortedSales(
-    List<SaleRecord> sales,
-    InventoryData inventory,
-  ) {
-    final query = salesSearch.trim().toLowerCase();
-
-    final result = sales.where((sale) {
-      final branch = inventory.findBranch(sale.branchId);
-
-      final matchesSearch = query.isEmpty ||
-          sale.invoiceNumber.toLowerCase().contains(query) ||
-          sale.customerName.toLowerCase().contains(query) ||
-          sale.customerPhone.toLowerCase().contains(query) ||
-          sale.paymentMethod.toLowerCase().contains(query) ||
-          (branch?.name.toLowerCase().contains(query) ?? false);
-
-      bool matchesFilter = true;
-
-      switch (salesFilter) {
-        case 'cash':
-          matchesFilter =
-              sale.paymentMethod.toLowerCase() == 'cash';
-          break;
-        case 'qr':
-          matchesFilter =
-              sale.paymentMethod.toLowerCase() == 'qr';
-          break;
-        case 'card':
-          matchesFilter =
-              sale.paymentMethod.toLowerCase() == 'card';
-          break;
-        case 'bank':
-          matchesFilter =
-              sale.paymentMethod.toLowerCase() == 'bank transfer';
-          break;
-        case 'credit':
-          matchesFilter =
-              sale.paymentMethod.toLowerCase() == 'credit';
-          break;
-        case 'due':
-          matchesFilter = sale.balanceDue > 0;
-          break;
-        case 'paid':
-          matchesFilter = sale.balanceDue <= 0;
-          break;
-      }
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-
-    switch (salesSort) {
-      case 'newest':
-        result.sort((a, b) => b.date.compareTo(a.date));
-        break;
-      case 'oldest':
-        result.sort((a, b) => a.date.compareTo(b.date));
-        break;
-      case 'total_high':
-        result.sort((a, b) => b.total.compareTo(a.total));
-        break;
-      case 'total_low':
-        result.sort((a, b) => a.total.compareTo(b.total));
-        break;
-      case 'invoice_az':
-        result.sort(
-          (a, b) => a.invoiceNumber.compareTo(b.invoiceNumber),
-        );
-        break;
-      case 'invoice_za':
-        result.sort(
-          (a, b) => b.invoiceNumber.compareTo(a.invoiceNumber),
-        );
-        break;
-    }
-
-    return result;
+  void showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
-  // ------------------------------------------------------------
-  // CREATE SALE
-  // ------------------------------------------------------------
+  @override
+  void dispose() {
+    supplierController.dispose();
+    phoneController.dispose();
+    addressController.dispose();
+    invoiceController.dispose();
+    discountController.dispose();
+    taxController.dispose();
+    paidController.dispose();
+    purchaseNotesController.dispose();
+    returnReasonController.dispose();
+    returnNotesController.dispose();
+    super.dispose();
+  }
 
-  void addProductDialog(InventoryData inventory) {
-    if (inventory.products.isEmpty) {
-      showMessage('No products available.', error: true);
-      return;
-    }
+  Future<void> addPurchaseItem(
+    InventoryData inventory,
+    String branchId,
+  ) async {
+    final products = inventory.products;
+    if (products.isEmpty) return;
 
-    String productId = inventory.products.first.id;
+    String productId = products.first.id;
     final quantityController = TextEditingController(text: '1');
+    final costController = TextEditingController(
+      text: products.first.costPrice.toString(),
+    );
 
-    showDialog(
+    final result = await showDialog<PurchaseOrderLine>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, updateDialog) {
-            final product = inventory.findProduct(productId);
-
-            final available = product == null || selectedBranchId == null
-                ? 0
-                : inventory.getBranchQuantity(
-                    product.id,
-                    selectedBranchId!,
-                  );
+          builder: (context, refresh) {
+            final product =
+                products.firstWhere((p) => p.id == productId);
 
             return AlertDialog(
               backgroundColor: panel,
               title: const Text(
-                'Add Product',
+                'Add purchase item',
                 style: TextStyle(color: Colors.white),
               ),
               content: SingleChildScrollView(
@@ -209,45 +114,45 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                   children: [
                     DropdownButtonFormField<String>(
                       value: productId,
+                      isExpanded: true,
                       dropdownColor: panel,
-                      decoration: const InputDecoration(
-                        labelText: 'Product',
-                      ),
-                      items: inventory.products.map((item) {
+                      style: const TextStyle(color: Colors.white),
+                      decoration: decoration('Product'),
+                      items: products.map((p) {
                         return DropdownMenuItem(
-                          value: item.id,
-                          child: Text(
-                            '${item.name} (${item.sku})',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          value: p.id,
+                          child: Text('${p.name} (${p.sku})'),
                         );
                       }).toList(),
                       onChanged: (value) {
                         if (value != null) {
-                          updateDialog(() => productId = value);
+                          refresh(() {
+                            productId = value;
+                            costController.text =
+                                products.firstWhere(
+                                  (p) => p.id == value,
+                                ).costPrice.toString();
+                          });
                         }
                       },
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: quantityController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Quantity',
-                      ),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: decoration('Quantity'),
                     ),
                     const SizedBox(height: 12),
-                    if (product != null) ...[
-                      Text(
-                        'Selling price: ${money(product.sellingPrice)}',
-                        style: const TextStyle(color: Colors.white),
+                    TextField(
+                      controller: costController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Available at selected branch: $available ${product.unit}',
-                        style: const TextStyle(color: muted),
-                      ),
-                    ],
+                      style: const TextStyle(color: Colors.white),
+                      decoration: decoration('Unit purchase cost (Rs.)'),
+                    ),
                   ],
                 ),
               ),
@@ -260,191 +165,689 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                   onPressed: () {
                     final quantity =
                         int.tryParse(quantityController.text.trim());
+                    final cost =
+                        double.tryParse(costController.text.trim());
 
-                    if (product == null ||
-                        quantity == null ||
-                        quantity <= 0) {
-                      showMessage('Enter a valid quantity.', error: true);
+                    if (quantity == null ||
+                        quantity <= 0 ||
+                        cost == null ||
+                        cost < 0) {
+                      showMessage('Enter a valid quantity and cost.');
                       return;
                     }
 
-                    if (selectedBranchId == null) {
-                      showMessage('Select a branch first.', error: true);
-                      return;
-                    }
-
-                    if (quantity > available) {
-                      showMessage(
-                        'Not enough stock at this branch.',
-                        error: true,
-                      );
-                      return;
-                    }
-
-                    setState(() {
-                      final index = cart.indexWhere(
-                        (item) => item.productId == product.id,
-                      );
-
-                      if (index >= 0) {
-                        final updatedQuantity =
-                            cart[index].quantity + quantity;
-
-                        cart[index] = SalesCartItem(
-                          productId: product.id,
-                          quantity: updatedQuantity,
-                          unitPrice: cart[index].unitPrice,
-                        );
-                      } else {
-                        cart.add(
-                          SalesCartItem(
-                            productId: product.id,
-                            quantity: quantity,
-                            unitPrice: product.sellingPrice,
-                          ),
-                        );
-                      }
-                    });
-
-                    Navigator.pop(dialogContext);
+                    Navigator.pop(
+                      dialogContext,
+                      PurchaseOrderLine(
+                        productId: product.id,
+                        productName: product.name,
+                        sku: product.sku,
+                        unit: product.unit,
+                        quantity: quantity,
+                        unitCost: cost,
+                      ),
+                    );
                   },
-                  child: const Text('Add to Sale'),
+                  child: const Text('Add item'),
                 ),
               ],
             );
           },
         );
       },
-    ).then((_) => quantityController.dispose());
-  }
-
-  void removeCartItem(int index) {
-    setState(() => cart.removeAt(index));
-  }
-
-  void completeSale(InventoryData inventory) {
-    if (selectedBranchId == null) {
-      showMessage('Please select a branch.', error: true);
-      return;
-    }
-
-    if (cart.isEmpty) {
-      showMessage('Please add products to the sale.', error: true);
-      return;
-    }
-
-    final discountValue = double.tryParse(discountController.text) ?? -1;
-    final taxValue = double.tryParse(taxController.text) ?? -1;
-    final paidValue = double.tryParse(paidController.text) ?? -1;
-
-    if (discountValue < 0 || taxValue < 0 || paidValue < 0) {
-      showMessage(
-        'Enter valid discount, tax and payment amounts.',
-        error: true,
-      );
-      return;
-    }
-
-    try {
-      final sale = inventory.createSale(
-        branchId: selectedBranchId!,
-        items: List.from(cart),
-        customerName: customerController.text,
-        customerPhone: phoneController.text,
-        paymentMethod: paymentMethod,
-        discount: discountValue,
-        tax: taxValue,
-        amountPaid: paidValue,
-      );
-
-      setState(() {
-        cart.clear();
-        customerController.clear();
-        phoneController.clear();
-        discountController.text = '0';
-        taxController.text = '0';
-        paidController.text = '0';
-      });
-
-      showMessage('Sale completed. Invoice: ${sale.invoiceNumber}');
-    } catch (e) {
-      showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-        error: true,
-      );
-    }
-  }
-
-  // ------------------------------------------------------------
-  // COMMON UI HELPERS
-  // ------------------------------------------------------------
-
-  Widget sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
+
+    quantityController.dispose();
+    costController.dispose();
+
+    if (result != null && mounted) {
+      setState(() => purchaseItems.add(result));
+    }
   }
 
-  Widget panelCard({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFF26364D)),
-      ),
-      child: child,
+  Future<void> createPurchaseOrder(
+    InventoryData inventory,
+    InventoryPurchaseData purchaseData,
+  ) async {
+    final branches =
+        inventory.branches.where((b) => b.active).toList();
+
+    if (inventory.products.isEmpty || branches.isEmpty) {
+      showMessage('Add products and an active branch first.');
+      return;
+    }
+
+    supplierController.clear();
+    phoneController.clear();
+    addressController.clear();
+    invoiceController.clear();
+    discountController.text = '0';
+    taxController.text = '0';
+    paidController.text = '0';
+    purchaseNotesController.clear();
+    purchaseItems.clear();
+    purchasePaymentMethod = 'Cash';
+
+    String branchId = branches.first.id;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            final subtotal = purchaseItems.fold<double>(
+              0,
+              (sum, item) => sum + item.total,
+            );
+            final discount =
+                double.tryParse(discountController.text) ?? 0;
+            final tax = double.tryParse(taxController.text) ?? 0;
+            final total = subtotal - discount + tax;
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'New Purchase Order',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: supplierController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Supplier name *'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Supplier phone'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: addressController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Supplier address'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: invoiceController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration:
+                            decoration('Supplier invoice number'),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: branchId,
+                        isExpanded: true,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Receiving branch'),
+                        items: branches.map((branch) {
+                          return DropdownMenuItem(
+                            value: branch.id,
+                            child: Text(branch.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() => branchId = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Purchase items',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...purchaseItems.map((item) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 7),
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF080B12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item.productName}\n'
+                                  '${item.quantity} ${item.unit} × '
+                                  '${money(item.unitCost)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                money(item.total),
+                                style: const TextStyle(color: green),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  refresh(() {
+                                    purchaseItems.remove(item);
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await addPurchaseItem(inventory, branchId);
+                          refresh(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add product'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: discountController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Discount (Rs.)'),
+                        onChanged: (_) => refresh(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: taxController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Tax (Rs.)'),
+                        onChanged: (_) => refresh(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: paidController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Amount paid (Rs.)'),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: purchasePaymentMethod,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Payment method'),
+                        items: const [
+                          'Cash',
+                          'Bank Transfer',
+                          'Card',
+                          'Cheque',
+                          'Credit',
+                          'Other',
+                        ].map((value) {
+                          return DropdownMenuItem(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(
+                              () => purchasePaymentMethod = value,
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: purchaseNotesController,
+                        maxLines: 2,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Notes'),
+                      ),
+                      const Divider(color: Colors.white24, height: 25),
+                      _totalRow('Subtotal', money(subtotal)),
+                      _totalRow('Grand total', money(total),
+                          valueColor: green),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: green,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () async {
+                    final paid =
+                        double.tryParse(paidController.text.trim()) ?? 0;
+
+                    if (supplierController.text.trim().isEmpty) {
+                      showMessage('Enter the supplier name.');
+                      return;
+                    }
+
+                    if (purchaseItems.isEmpty) {
+                      showMessage('Add at least one product.');
+                      return;
+                    }
+
+                    try {
+                      await purchaseData.createPurchaseOrder(
+                        inventory: inventory,
+                        supplierName: supplierController.text,
+                        supplierPhone: phoneController.text,
+                        supplierAddress: addressController.text,
+                        supplierInvoiceNumber: invoiceController.text,
+                        branchId: branchId,
+                        items: List.from(purchaseItems),
+                        discount: discount,
+                        tax: tax,
+                        amountPaid: paid,
+                        paymentMethod: purchasePaymentMethod,
+                        notes: purchaseNotesController.text,
+                      );
+
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, true);
+                      }
+                    } catch (error) {
+                      showMessage(
+                        error.toString().replaceFirst('Exception: ', ''),
+                      );
+                    }
+                  },
+                  child: const Text('Receive & Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
+    if (saved == true && mounted) {
+      showMessage('Purchase order saved and stock received.');
+    }
   }
 
-  Widget textField(
+  Future<void> addReturnItem(
+    PurchaseOrderRecord purchase,
+    InventoryData inventory,
+  ) async {
+    final quantityController = TextEditingController(text: '1');
+
+    String productId = purchase.items.first.productId;
+
+    final result = await showDialog<SupplierReturnLine>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            final purchased = purchase.items
+                .where((item) => item.productId == productId)
+                .first;
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Add return item',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: productId,
+                    isExpanded: true,
+                    dropdownColor: panel,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: decoration('Purchased product'),
+                    items: purchase.items.map((item) {
+                      return DropdownMenuItem(
+                        value: item.productId,
+                        child: Text(item.productName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        refresh(() => productId = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: quantityController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: decoration('Quantity to return'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final quantity =
+                        int.tryParse(quantityController.text.trim());
+
+                    if (quantity == null || quantity <= 0) {
+                      showMessage('Enter a valid return quantity.');
+                      return;
+                    }
+
+                    Navigator.pop(
+                      dialogContext,
+                      SupplierReturnLine(
+                        productId: purchased.productId,
+                        productName: purchased.productName,
+                        sku: purchased.sku,
+                        unit: purchased.unit,
+                        quantity: quantity,
+                        unitCost: purchased.unitCost,
+                      ),
+                    );
+                  },
+                  child: const Text('Add item'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    quantityController.dispose();
+
+    if (result != null && mounted) {
+      setState(() => returnItems.add(result));
+    }
+  }
+
+  Future<void> createSupplierReturn(
+    InventoryData inventory,
+    InventoryPurchaseData purchaseData,
+  ) async {
+    if (purchaseData.purchaseOrders.isEmpty) {
+      showMessage('There are no purchase orders to return against.');
+      return;
+    }
+
+    returnItems.clear();
+    returnReasonController.clear();
+    returnNotesController.clear();
+    returnSettlement = 'Supplier Credit';
+
+    PurchaseOrderRecord selectedPurchase =
+        purchaseData.purchaseOrders.first;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            final total = returnItems.fold<double>(
+              0,
+              (sum, item) => sum + item.total,
+            );
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Supplier Return',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: selectedPurchase.purchaseOrderNumber,
+                        isExpanded: true,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Original purchase order'),
+                        items: purchaseData.purchaseOrders.map((order) {
+                          return DropdownMenuItem(
+                            value: order.purchaseOrderNumber,
+                            child: Text(
+                              '${order.purchaseOrderNumber} • '
+                              '${order.supplierName}',
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() {
+                              selectedPurchase =
+                                  purchaseData.purchaseOrders.firstWhere(
+                                (order) =>
+                                    order.purchaseOrderNumber == value,
+                              );
+                              returnItems.clear();
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Supplier: ${selectedPurchase.supplierName}\n'
+                          'Branch: ${inventory.getBranchById(selectedPurchase.branchId)?.name ?? "Unknown"}',
+                          style: const TextStyle(
+                            color: muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Products to return',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...returnItems.map((item) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 7),
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF080B12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item.productName}\n'
+                                  '${item.quantity} ${item.unit} × '
+                                  '${money(item.unitCost)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                money(item.total),
+                                style: const TextStyle(color: orange),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  refresh(() => returnItems.remove(item));
+                                },
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await addReturnItem(selectedPurchase, inventory);
+                          refresh(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add return product'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: returnReasonController,
+                        maxLines: 2,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Reason for return *'),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: returnSettlement,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Settlement type'),
+                        items: const [
+                          'Supplier Credit',
+                          'Refund',
+                          'Replacement',
+                          'Pending',
+                        ].map((value) {
+                          return DropdownMenuItem(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() => returnSettlement = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: returnNotesController,
+                        maxLines: 2,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: decoration('Additional notes'),
+                      ),
+                      const Divider(color: Colors.white24, height: 25),
+                      _totalRow(
+                        'Return value',
+                        money(total),
+                        valueColor: orange,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: orange,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () async {
+                    if (returnItems.isEmpty) {
+                      showMessage('Add at least one product to return.');
+                      return;
+                    }
+
+                    try {
+                      await purchaseData.createSupplierReturn(
+                        inventory: inventory,
+                        originalPurchaseOrderNumber:
+                            selectedPurchase.purchaseOrderNumber,
+                        items: List.from(returnItems),
+                        reason: returnReasonController.text,
+                        settlementType: returnSettlement,
+                        notes: returnNotesController.text,
+                      );
+
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, true);
+                      }
+                    } catch (error) {
+                      showMessage(
+                        error.toString().replaceFirst('Exception: ', ''),
+                      );
+                    }
+                  },
+                  child: const Text('Save Supplier Return'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == true && mounted) {
+      showMessage('Supplier return saved and stock reduced.');
+    }
+  }
+
+  Widget _totalRow(
     String label,
-    TextEditingController controller, {
-    TextInputType keyboardType = TextInputType.text,
+    String value, {
+    Color valueColor = Colors.white,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: muted),
-        filled: true,
-        fillColor: const Color(0xFF0B1421),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-
-  Widget totalRow(String label, double value, {bool bold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: bold ? Colors.white : muted,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: muted),
             ),
           ),
           Text(
-            money(value),
+            value,
             style: TextStyle(
-              color: bold ? blue : Colors.white,
+              color: valueColor,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -453,46 +856,517 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // CART
-  // ------------------------------------------------------------
+  Widget summaryCard(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF26364D)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.inventory_2_outlined, color: color, size: 25),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget buildCart(InventoryData inventory) {
-    if (cart.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 22),
-        child: Center(
+  Widget actionButton(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF26364D)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(color: muted, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void showPurchaseDetails(
+    PurchaseOrderRecord order,
+    InventoryData inventory,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final branch =
+            inventory.getBranchById(order.branchId)?.name ?? 'Unknown';
+
+        return AlertDialog(
+          backgroundColor: panel,
+          title: Text(
+            'PURCHASE INVOICE\n${order.purchaseOrderNumber}',
+            style: const TextStyle(color: Colors.white, fontSize: 17),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _detail('Date', formatDate(order.date)),
+                  _detail('Supplier', order.supplierName),
+                  _detail('Phone', order.supplierPhone),
+                  _detail('Address', order.supplierAddress),
+                  _detail('Supplier invoice', order.supplierInvoiceNumber),
+                  _detail('Receiving branch', branch),
+                  const Divider(color: Colors.white24),
+                  const Text(
+                    'ITEM DETAILS',
+                    style: TextStyle(
+                      color: blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...order.items.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        '${item.productName} (${item.sku})\n'
+                        '${item.quantity} ${item.unit} × '
+                        '${money(item.unitCost)} = ${money(item.total)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }),
+                  const Divider(color: Colors.white24),
+                  _detail('Subtotal', money(order.subtotal)),
+                  _detail('Discount', money(order.discount)),
+                  _detail('Tax', money(order.tax)),
+                  _detail('Grand total', money(order.total)),
+                  _detail('Amount paid', money(order.amountPaid)),
+                  _detail('Balance due', money(order.balanceDue)),
+                  _detail('Payment method', order.paymentMethod),
+                  _detail('Payment status', order.paymentStatus),
+                  _detail('Order status', order.status),
+                  if (order.notes.isNotEmpty) ...[
+                    const Divider(color: Colors.white24),
+                    _detail('Notes', order.notes),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showReturnDetails(
+    SupplierReturnRecord record,
+    InventoryData inventory,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final branch =
+            inventory.getBranchById(record.branchId)?.name ?? 'Unknown';
+
+        return AlertDialog(
+          backgroundColor: panel,
+          title: Text(
+            'SUPPLIER RETURN NOTE\n${record.returnNumber}',
+            style: const TextStyle(color: Colors.white, fontSize: 17),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _detail('Date', formatDate(record.date)),
+                  _detail('Supplier', record.supplierName),
+                  _detail('Phone', record.supplierPhone),
+                  _detail('Original purchase', record.originalPurchaseOrderNumber),
+                  _detail('Branch', branch),
+                  const Divider(color: Colors.white24),
+                  const Text(
+                    'RETURNED ITEMS',
+                    style: TextStyle(
+                      color: orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...record.items.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        '${item.productName} (${item.sku})\n'
+                        '${item.quantity} ${item.unit} × '
+                        '${money(item.unitCost)} = ${money(item.total)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }),
+                  const Divider(color: Colors.white24),
+                  _detail('Total return value', money(record.total)),
+                  _detail('Reason', record.reason),
+                  _detail('Settlement', record.settlementType),
+                  if (record.notes.isNotEmpty)
+                    _detail('Notes', record.notes),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 115,
+            child: Text(
+              label,
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget transactionCard({
+    required String title,
+    required String subtitle,
+    required String amount,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF26364D)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.receipt_long_outlined, color: color, size: 25),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: muted, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              amount,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 5),
+            const Icon(Icons.chevron_right, color: muted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inventory = ref.watch(inventoryProvider);
+    final purchaseData = ref.watch(inventoryPurchaseProvider);
+    final initialization =
+        ref.watch(inventoryPurchaseInitializationProvider);
+
+    if (initialization.isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF080B12),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (initialization.hasError) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF080B12),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF080B12),
+          title: const Text('Stock Management'),
+        ),
+        body: Center(
           child: Text(
-            'No products added yet.',
-            style: TextStyle(color: muted),
+            'Could not load purchase records:\n${initialization.error}',
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center,
           ),
         ),
       );
     }
 
-    return Column(
-      children: List.generate(cart.length, (index) {
-        final item = cart[index];
-        final product = inventory.findProduct(item.productId);
+    final movements = inventory.movements;
+    final totalReceived = movements
+        .where((m) => m.type == 'Stock In')
+        .fold<int>(0, (sum, m) => sum + m.quantity);
+    final totalReturned = movements
+        .where((m) => m.type == 'Stock Out')
+        .fold<int>(0, (sum, m) => sum + m.quantity);
 
-        if (product == null) return const SizedBox.shrink();
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(11),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0B1421),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.inventory_2_outlined,
-                color: blue,
-                size: 25,
+    return Scaffold(
+      backgroundColor: const Color(0xFF080B12),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF080B12),
+        foregroundColor: Colors.white,
+        title: const Text('Stock Management'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const Text(
+              'Stock Overview',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(width: 10),
-              Expanded(
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: summaryCard(
+                    'Goods received',
+                    totalReceived.toString(),
+                    green,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: summaryCard(
+                    'Supplier returns',
+                    totalReturned.toString(),
+                    orange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            summaryCard(
+              'Total current stock',
+              inventory.totalStock.toString(),
+              blue,
+            ),
+            const SizedBox(height: 25),
+            const Text(
+              'Stock Actions',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: actionButton(
+                    'Purchase Order',
+                    'Receive goods from supplier',
+                    Icons.add_shopping_cart,
+                    green,
+                    () => createPurchaseOrder(inventory, purchaseData),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: actionButton(
+                    'Supplier Return',
+                    'Return goods to supplier',
+                    Icons.assignment_return,
+                    orange,
+                    () => createSupplierReturn(inventory, purchaseData),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 25),
+            const Text(
+              'Purchase Order History',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (purchaseData.purchaseOrders.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(15),
+                child: Text(
+                  'No purchase orders yet.',
+                  style: TextStyle(color: muted),
+                ),
+              ),
+            ...purchaseData.purchaseOrders.map((order) {
+              final branch =
+                  inventory.getBranchById(order.branchId)?.name ??
+                      'Unknown branch';
+
+              return transactionCard(
+                title: '${order.purchaseOrderNumber} • ${order.supplierName}',
+                subtitle:
+                    '${formatDate(order.date)} • $branch • ${order.paymentStatus}',
+                amount: money(order.total),
+                color: green,
+                onTap: () => showPurchaseDetails(order, inventory),
+              );
+            }),
+            const SizedBox(height: 20),
+            const Text(
+              'Supplier Return History',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (purchaseData.supplierReturns.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(15),
+                child: Text(
+                  'No supplier returns yet.',
+                  style: TextStyle(color: muted),
+                ),
+              ),
+            ...purchaseData.supplierReturns.map((record) {
+              return transactionCard(
+                title: '${record.returnNumber} • ${record.supplierName}',
+                subtitle:
+                    '${formatDate(record.date)} • ${record.settlementType}',
+                amount: money(record.total),
+                color: orange,
+                onTap: () => showReturnDetails(record, inventory),
+              );
+            }),
+            const SizedBox(height: 20),
+            const Text(
+              'Branch-wise Stock',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (inventory.products.isEmpty)
+              const Text(
+                'No products added yet.',
+                style: TextStyle(color: muted),
+              ),
+            ...inventory.products.map((product) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: panel,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF26364D)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -503,490 +1377,48 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      '${item.quantity} × ${money(item.unitPrice)}',
-                      style: const TextStyle(color: muted, fontSize: 12),
+                      '${product.sku} • Total: '
+                      '${product.quantity} ${product.unit}',
+                      style: const TextStyle(
+                        color: muted,
+                        fontSize: 12,
+                      ),
                     ),
+                    const Divider(color: Colors.white12, height: 20),
+                    ...inventory.branches.map((branch) {
+                      final quantity = inventory.getBranchQuantity(
+                        product.id,
+                        branch.id,
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                branch.name,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '$quantity ${product.unit}',
+                              style: TextStyle(
+                                color: quantity > 0 ? green : muted,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
-              ),
-              Text(
-                money(item.quantity * item.unitPrice),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              IconButton(
-                onPressed: () => removeCartItem(index),
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.redAccent,
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // SALES HISTORY CARD
-  // ------------------------------------------------------------
-
-  Widget saleHistoryCard(SaleRecord sale, InventoryData inventory) {
-    final branch = inventory.findBranch(sale.branchId);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 11),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF26364D)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long, color: blue),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  sale.invoiceNumber,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                money(sale.total),
-                style: const TextStyle(
-                  color: blue,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          Text(
-            'Branch: ${branch?.name ?? "Unknown"}',
-            style: const TextStyle(color: muted, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Customer: ${sale.customerName.isEmpty ? "Walk-in customer" : sale.customerName}',
-            style: const TextStyle(color: muted, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Phone: ${sale.customerPhone.isEmpty ? "Not provided" : sale.customerPhone}',
-            style: const TextStyle(color: muted, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Payment: ${sale.paymentMethod}  •  ${sale.items.length} product line(s)',
-            style: const TextStyle(color: muted, fontSize: 12),
-          ),
-          const SizedBox(height: 9),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                sale.balanceDue > 0
-                    ? 'Due: ${money(sale.balanceDue)}'
-                    : sale.change > 0
-                        ? 'Change: ${money(sale.change)}'
-                        : 'Paid',
-                style: TextStyle(
-                  color: sale.balanceDue > 0
-                      ? Colors.orangeAccent
-                      : Colors.greenAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              TextButton(
-                onPressed: () => showSaleDetails(sale),
-                child: const Text('Details'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // INVOICE DETAILS
-  // ------------------------------------------------------------
-
-  void showSaleDetails(SaleRecord sale) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: panel,
-        title: Text(
-          sale.invoiceNumber,
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Customer: ${sale.customerName.isEmpty ? "Walk-in customer" : sale.customerName}',
-                  style: const TextStyle(color: muted),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Phone: ${sale.customerPhone.isEmpty ? "Not provided" : sale.customerPhone}',
-                  style: const TextStyle(color: muted),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Payment: ${sale.paymentMethod}',
-                  style: const TextStyle(color: muted),
-                ),
-                const SizedBox(height: 12),
-                ...sale.items.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 9),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${item.productName} × ${item.quantity}',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        Text(
-                          money(item.total),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(color: Color(0xFF26364D)),
-                totalRow('Subtotal', sale.subtotal),
-                totalRow('Discount', sale.discount),
-                totalRow('Tax', sale.tax),
-                totalRow('Total', sale.total, bold: true),
-                totalRow('Paid', sale.amountPaid),
-                totalRow('Balance due', sale.balanceDue),
-                totalRow('Change', sale.change),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // MAIN SCREEN
-  // ------------------------------------------------------------
-
-  @override
-  Widget build(BuildContext context) {
-    final inventory = ref.watch(inventoryProvider);
-
-    final activeBranches =
-        inventory.branches.where((branch) => branch.active).toList();
-
-    if (selectedBranchId == null && activeBranches.isNotEmpty) {
-      selectedBranchId = activeBranches.first.id;
-    }
-
-    final visibleSales = getSortedSales(inventory.sales, inventory);
-
-    return Scaffold(
-      backgroundColor: background,
-      appBar: AppBar(
-        backgroundColor: background,
-        title: const Text(
-          'Sales Management',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // SALES SUMMARY
-            Row(
-              children: [
-                Expanded(
-                  child: panelCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.currency_rupee, color: blue),
-                        const SizedBox(height: 9),
-                        const Text(
-                          "Today's Sales",
-                          style: TextStyle(color: muted, fontSize: 12),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          money(inventory.totalSalesToday),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: panelCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.receipt_long,
-                          color: Colors.greenAccent,
-                        ),
-                        const SizedBox(height: 9),
-                        const Text(
-                          "Today's Orders",
-                          style: TextStyle(color: muted, fontSize: 12),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          '${inventory.salesCountToday}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 25),
-            sectionTitle('Create New Sale'),
-
-            // NEW SALE FORM
-            panelCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedBranchId,
-                    dropdownColor: panel,
-                    decoration: const InputDecoration(
-                      labelText: 'Selling Branch',
-                    ),
-                    items: activeBranches.map((branch) {
-                      return DropdownMenuItem(
-                        value: branch.id,
-                        child: Text(branch.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedBranchId = value;
-                        cart.clear();
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Products',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: activeBranches.isEmpty
-                            ? null
-                            : () => addProductDialog(inventory),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Product'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-                  buildCart(inventory),
-
-                  const Divider(color: Color(0xFF26364D)),
-                  totalRow('Subtotal', subtotal),
-
-                  const SizedBox(height: 12),
-                  textField(
-                    'Discount (Rs.)',
-                    discountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                  textField(
-                    'Tax (Rs.)',
-                    taxController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                  totalRow('Total', total, bold: true),
-
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Customer Information',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  textField('Customer Name', customerController),
-                  const SizedBox(height: 12),
-                  textField(
-                    'Phone Number',
-                    phoneController,
-                    keyboardType: TextInputType.phone,
-                  ),
-
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Payment Information',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  DropdownButtonFormField<String>(
-                    value: paymentMethod,
-                    dropdownColor: panel,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Method',
-                    ),
-                    items: const [
-                      'Cash',
-                      'QR',
-                      'Card',
-                      'Bank Transfer',
-                      'Credit',
-                    ].map((method) {
-                      return DropdownMenuItem(
-                        value: method,
-                        child: Text(method),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => paymentMethod = value);
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  textField(
-                    'Amount Paid (Rs.)',
-                    paidController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: () => completeSale(inventory),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text(
-                        'Complete Sale',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blue,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // SALES HISTORY
-            const SizedBox(height: 28),
-            sectionTitle('Sales History'),
-
-            InventoryListToolbar(
-              searchController: salesSearchController,
-              searchHint: 'Search invoice, customer, phone or branch...',
-              onSearchChanged: (value) {
-                setState(() => salesSearch = value);
-              },
-              sortOptions: salesSortOptions,
-              selectedSort: salesSort,
-              onSortChanged: (value) {
-                setState(() => salesSort = value);
-              },
-              filterOptions: salesFilterOptions,
-              selectedFilter: salesFilter,
-              onFilterChanged: (value) {
-                setState(() => salesFilter = value);
-              },
-            ),
-
-            const SizedBox(height: 14),
-
-            if (visibleSales.isEmpty)
-              panelCard(
-                child: const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(15),
-                    child: Text(
-                      'No matching sales found.',
-                      style: TextStyle(color: muted),
-                    ),
-                  ),
-                ),
-              )
-            else
-              ...visibleSales.map(
-                (sale) => saleHistoryCard(sale, inventory),
-              ),
-
-            const SizedBox(height: 25),
+              );
+            }),
           ],
         ),
       ),
