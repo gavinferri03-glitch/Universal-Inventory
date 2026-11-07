@@ -2,6 +2,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'inventory_models.dart';
+
+export 'inventory_models.dart';
+
 import 'inventory_storage.dart';
 import 'notifications_data.dart';
 import 'code_generator.dart';
