@@ -1,4 +1,3 @@
-
 part of 'inventory_data.dart';
 
 extension InventoryStock on InventoryData {
@@ -8,13 +7,10 @@ extension InventoryStock on InventoryData {
 
   int getBranchQuantity(String productId, String branchId) {
     final product = getProductById(productId);
+
     if (product == null) return 0;
 
     return product.branchQuantities[branchId] ?? 0;
-  }
-
-  int getBranchStock(String productId, String branchId) {
-    return getBranchQuantity(productId, branchId);
   }
 
   // ==========================================================
@@ -31,7 +27,12 @@ extension InventoryStock on InventoryData {
       throw Exception('Quantity must be greater than zero.');
     }
 
+    if (type != 'Stock In' && type != 'Stock Out') {
+      throw Exception('Invalid stock movement type.');
+    }
+
     final product = getProductById(productId);
+
     if (product == null) {
       throw Exception('Product not found.');
     }
@@ -40,11 +41,8 @@ extension InventoryStock on InventoryData {
       throw Exception('Branch not found.');
     }
 
-    if (type != 'Stock In' && type != 'Stock Out') {
-      throw Exception('Invalid stock movement type.');
-    }
-
-    final currentQuantity = getBranchQuantity(productId, branchId);
+    final currentQuantity =
+        product.branchQuantities[branchId] ?? 0;
 
     if (type == 'Stock Out' && currentQuantity < quantity) {
       throw Exception('Insufficient stock in this branch.');
@@ -56,7 +54,8 @@ extension InventoryStock on InventoryData {
 
     product.branchQuantities[branchId] = newQuantity;
 
-    product.quantity = product.branchQuantities.values.fold<int>(
+    product.quantity =
+        product.branchQuantities.values.fold<int>(
       0,
       (total, value) => total + value,
     );
