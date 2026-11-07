@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-mixin InventorySales on InventoryData {
+extension InventorySales on InventoryData {
   // ==========================================================
   // SALES SUMMARY
   // ==========================================================
