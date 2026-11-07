@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'inventory_data.dart';
+import 'notification_screen.dart';
 import 'products_screen.dart';
 import 'stock_screen.dart';
 import 'sales_screen.dart';
@@ -30,6 +31,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const Color cardColor = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NotificationScreen(),
+      ),
+    );
+  }
 
   Future<void> _openPage(int index) async {
     if (index == 0) {
@@ -638,6 +648,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final recentMovements = inventory.movements.take(5).toList();
 
+    final unreadCount = inventory.notificationCenter.unreadCount;
+
     return Scaffold(
       backgroundColor: background,
       drawer: _buildDrawer(),
@@ -651,6 +663,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: IconButton(
+              tooltip: 'Notifications',
+              onPressed: _openNotifications,
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Colors.white,
+                    size: 27,
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: -7,
+                      top: -5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 17,
+                          minHeight: 17,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: background,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
