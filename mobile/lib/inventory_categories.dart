@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryCategories on ChangeNotifier {
+mixin InventoryCategories on ChangeNotifier {
   // CATEGORY MANAGEMENT
 
   void addCategory({
