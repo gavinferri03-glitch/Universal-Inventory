@@ -1,8 +1,11 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'inventory_data.dart';
 import 'products_screen.dart';
 import 'stock_screen.dart';
+import 'sales_screen.dart';
 import 'settings_screen.dart';
 import 'business_profile_screen.dart';
 import 'branches_screen.dart';
@@ -11,14 +14,14 @@ import 'categories_screen.dart';
 import 'allocation_screen.dart';
 import 'suppliers_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int selectedIndex = 0;
 
   static const Color background = Color(0xFF080B12);
@@ -26,16 +29,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
 
-  // BOTTOM NAVIGATION
+  // ==========================================================
+  // NAVIGATION
+  // ==========================================================
 
-  void _openPage(int index) {
+  Future<void> _openPage(int index) async {
     if (index == 0) {
-      setState(() => selectedIndex = 0);
       Navigator.popUntil(context, (route) => route.isFirst);
+      if (mounted) setState(() => selectedIndex = 0);
       return;
     }
-
-    setState(() => selectedIndex = index);
 
     Widget? page;
 
@@ -47,28 +50,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         page = const StockScreen();
         break;
       case 3:
-        page = const SalesPlaceholderScreen();
+        page = const SalesScreen();
         break;
       case 4:
         page = const SettingsScreen();
         break;
     }
 
-    if (page != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => page!),
-      );
+    if (page == null) return;
+
+    setState(() => selectedIndex = index);
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => page!),
+    );
+
+    // When the user returns, the visible page is the dashboard.
+    if (mounted) {
+      setState(() => selectedIndex = 0);
     }
   }
 
-  // DRAWER NAVIGATION
-
-  void _openMenuPage(String item, int? page) {
+  Future<void> _openMenuPage(String item, int? page) async {
     Navigator.pop(context);
 
     if (page != null) {
-      _openPage(page);
+      await _openPage(page);
       return;
     }
 
@@ -78,39 +86,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'Business Profile':
         destination = const BusinessProfileScreen();
         break;
-
       case 'Branches':
         destination = const BranchesScreen();
         break;
-
       case 'Users':
         destination = const UsersScreen();
         break;
-
       case 'Categories':
         destination = const CategoriesScreen();
         break;
-
       case 'Allocation':
         destination = const AllocationScreen();
         break;
-
       case 'Suppliers':
         destination = const SuppliersScreen();
         break;
     }
 
     if (destination != null) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => destination!),
       );
+
+      if (mounted) {
+        setState(() => selectedIndex = 0);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$item will be added soon.')),
       );
     }
   }
+
+  // ==========================================================
+  // DRAWER
+  // ==========================================================
 
   Widget _menuTile(String title, int? page) {
     return ListTile(
@@ -157,8 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  // LEFT DRAWER
 
   Widget _buildDrawer() {
     return Drawer(
@@ -320,7 +329,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ==========================================================
   // SUMMARY CARDS
+  // ==========================================================
 
   Widget _summaryCard({
     required String title,
@@ -374,7 +385,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ==========================================================
   // QUICK ACTIONS
+  // ==========================================================
 
   Widget _quickAction({
     required String title,
@@ -437,18 +450,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // SALES AND PURCHASE OVERVIEW
+  // ==========================================================
+  // SALES OVERVIEW
+  // ==========================================================
 
-  Widget _overviewCard({
-    required String title,
-    required String period,
-    required List<String> labels,
-    required List<String> values,
-    required List<double> chartValues,
-    required bool isLine,
-  }) {
+  Widget _salesOverview(InventoryData inventory) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -457,87 +465,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Sales Overview',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+              const Text(
+                "Today's Sales",
+                style: TextStyle(color: muted, fontSize: 12),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF263B5B),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  period,
-                  style: const TextStyle(
-                    color: blue,
-                    fontSize: 11,
-                  ),
+              Text(
+                'Rs. ${inventory.totalSalesToday.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: blue,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 17),
+          const SizedBox(height: 10),
           Row(
-            children: List.generate(3, (index) {
-              return Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      labels[index],
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        values[index],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 125,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: isLine
-                  ? _LineChartPainter(chartValues)
-                  : _BarChartPainter(chartValues),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Day 1', style: TextStyle(color: muted, fontSize: 10)),
-              Text('Day 5', style: TextStyle(color: muted, fontSize: 10)),
-              Text('Day 10', style: TextStyle(color: muted, fontSize: 10)),
-              Text('Day 15', style: TextStyle(color: muted, fontSize: 10)),
-              Text('Day 20', style: TextStyle(color: muted, fontSize: 10)),
-              Text('Day 30', style: TextStyle(color: muted, fontSize: 10)),
+              const Text(
+                "Today's Orders",
+                style: TextStyle(color: muted, fontSize: 12),
+              ),
+              Text(
+                '${inventory.salesCountToday}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Recorded Sales',
+                style: TextStyle(color: muted, fontSize: 12),
+              ),
+              Text(
+                'Rs. ${inventory.totalSales.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ],
@@ -545,9 +530,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // LOW STOCK ALERTS
+  // ==========================================================
+  // LOW STOCK
+  // ==========================================================
 
-  Widget _stockAlert(String name, String sku, String quantity) {
+  Widget _stockAlert(InventoryProduct product) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(13),
@@ -567,7 +554,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  product.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -575,7 +562,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  sku,
+                  product.sku,
                   style: const TextStyle(
                     color: muted,
                     fontSize: 11,
@@ -585,7 +572,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           Text(
-            quantity,
+            '${product.quantity} left',
             style: const TextStyle(
               color: Color(0xFFFFB454),
               fontWeight: FontWeight.bold,
@@ -597,17 +584,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ==========================================================
   // RECENT ACTIVITY
+  // ==========================================================
 
-  Widget _activityItem(
-    IconData icon,
-    Color color,
-    String title,
-    String subtitle,
-    String time,
-  ) {
+  Widget _activityItem(StockMovement movement, InventoryData inventory) {
+    final isIn = movement.type == 'Stock In' ||
+        movement.type == 'Transfer In';
+
+    final color = isIn
+        ? const Color(0xFF45C99A)
+        : movement.type == 'Stock Out'
+            ? const Color(0xFFFFB454)
+            : blue;
+
+    final icon = isIn
+        ? Icons.call_received
+        : movement.type == 'Stock Out'
+            ? Icons.call_made
+            : Icons.swap_horiz;
+
+    final branch = inventory.findBranch(movement.branchId);
+
+    final date = movement.date;
+    final time =
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 15),
       child: Row(
         children: [
           Container(
@@ -625,7 +629,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  movement.type,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -634,11 +638,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  '${movement.productName} • ${movement.quantity} units • ${branch?.name ?? "Unknown branch"}',
                   style: const TextStyle(
                     color: muted,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -655,10 +661,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ==========================================================
   // MAIN DASHBOARD
+  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
+    final inventory = ref.watch(inventoryProvider);
+
+    final lowStockProducts = inventory.products
+        .where((product) => product.quantity <= product.minimumStock)
+        .toList();
+
+    final recentMovements = inventory.movements.take(5).toList();
+
     return Scaffold(
       backgroundColor: background,
       drawer: _buildDrawer(),
@@ -675,7 +691,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () => _openPage(4),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Notifications will be added soon.'),
+                ),
+              );
+            },
             icon: const Icon(
               Icons.notifications_none,
               color: Colors.white,
@@ -692,7 +714,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Good morning!',
+                'Welcome back!',
                 style: TextStyle(
                   color: muted,
                   fontSize: 14,
@@ -720,29 +742,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _summaryCard(
                     title: 'Total Products',
-                    value: '1,248',
+                    value: '${inventory.products.length}',
                     subtitle: 'Registered products',
                     icon: Icons.inventory_2_outlined,
                     color: blue,
                   ),
                   _summaryCard(
                     title: 'Total Stock Quantity',
-                    value: '8,450',
+                    value: '${inventory.totalStock}',
                     subtitle: 'Units available',
                     icon: Icons.all_inbox_outlined,
                     color: const Color(0xFF45C99A),
                   ),
                   _summaryCard(
                     title: 'Low Stock Items',
-                    value: '18',
+                    value: '${inventory.lowStockCount}',
                     subtitle: 'Need attention',
                     icon: Icons.warning_amber_rounded,
                     color: const Color(0xFFFFB454),
                   ),
                   _summaryCard(
                     title: "Today's Sales",
-                    value: 'Rs. 45,800',
-                    subtitle: '12 orders today',
+                    value:
+                        'Rs. ${inventory.totalSalesToday.toStringAsFixed(0)}',
+                    subtitle: '${inventory.salesCountToday} orders today',
                     icon: Icons.trending_up,
                     color: const Color(0xFFB28AFF),
                   ),
@@ -791,25 +814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 28),
 
-              _overviewCard(
-                title: 'Sales Overview',
-                period: 'This Month',
-                labels: ['Today', 'This Week', 'This Month'],
-                values: ['Rs. 45.8K', 'Rs. 2.4L', 'Rs. 8.6L'],
-                chartValues: [12, 18, 15, 28, 22, 36, 31, 45],
-                isLine: true,
-              ),
-
-              const SizedBox(height: 18),
-
-              _overviewCard(
-                title: 'Purchase Overview',
-                period: 'This Month',
-                labels: ['Today', 'This Week', 'This Month'],
-                values: ['Rs. 18K', 'Rs. 1.2L', 'Rs. 4.5L'],
-                chartValues: [8, 15, 12, 24, 18, 30, 22, 18],
-                isLine: false,
-              ),
+              _salesOverview(inventory),
 
               const SizedBox(height: 28),
 
@@ -817,49 +822,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 'Low Stock Alerts',
                 trailing: TextButton(
                   onPressed: () => _openPage(1),
-                  child: const Text('View all'),
+                  child: const Text('View products'),
                 ),
               ),
               const SizedBox(height: 8),
 
-              _stockAlert('Wireless Mouse', 'SKU-00124', '4 left'),
-              _stockAlert('USB Keyboard', 'SKU-00138', '3 left'),
-              _stockAlert('HDMI Cable', 'SKU-00201', '2 left'),
+              if (lowStockProducts.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Text(
+                    'No low stock products.',
+                    style: TextStyle(color: muted),
+                  ),
+                )
+              else
+                ...lowStockProducts.take(5).map(_stockAlert),
 
               const SizedBox(height: 20),
 
               _sectionTitle('Recent Activity'),
               const SizedBox(height: 16),
 
-              _activityItem(
-                Icons.call_received,
-                const Color(0xFF45C99A),
-                'Stock Received',
-                'Wireless Mouse • 20 units',
-                '10:30 AM',
-              ),
-              _activityItem(
-                Icons.shopping_cart,
-                const Color(0xFFB28AFF),
-                'Sale Recorded',
-                'Order #1008 • Rs. 8,500',
-                '10:00 AM',
-              ),
-              _activityItem(
-                Icons.call_made,
-                const Color(0xFFFFB454),
-                'Stock Issued',
-                'USB Keyboard • 5 units',
-                '09:45 AM',
-              ),
+              if (recentMovements.isEmpty)
+                const Text(
+                  'No stock activity recorded yet.',
+                  style: TextStyle(color: muted),
+                )
+              else
+                ...recentMovements.map(
+                  (movement) => _activityItem(movement, inventory),
+                ),
 
               const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-
-      // BOTTOM NAVIGATION
 
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
@@ -891,181 +894,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
-  }
-}
-
-// SALES PLACEHOLDER
-
-class SalesPlaceholderScreen extends StatelessWidget {
-  const SalesPlaceholderScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B12),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF080B12),
-        title: const Text('Sales'),
-      ),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(25),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.shopping_cart_outlined,
-                color: Color(0xFF5798FF),
-                size: 55,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Sales Management',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'We will build this section next.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFF91A4BE),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// SALES LINE CHART
-
-class _LineChartPainter extends CustomPainter {
-  final List<double> values;
-
-  _LineChartPainter(this.values);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = const Color(0xFF26364D)
-      ..strokeWidth = 1;
-
-    for (int i = 0; i < 4; i++) {
-      final y = size.height * i / 3;
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
-    }
-
-    if (values.length < 2) return;
-
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final minValue = values.reduce((a, b) => a < b ? a : b);
-    final range = (maxValue - minValue).abs() + 1;
-
-    final points = <Offset>[];
-
-    for (int i = 0; i < values.length; i++) {
-      final x = size.width * i / (values.length - 1);
-      final y = size.height -
-          ((values[i] - minValue) / range * size.height * 0.8) -
-          size.height * 0.1;
-
-      points.add(Offset(x, y));
-    }
-
-    final linePaint = Paint()
-      ..color = const Color(0xFF5798FF)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(points.first.dx, points.first.dy);
-
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-
-    canvas.drawPath(path, linePaint);
-
-    final dotPaint = Paint()
-      ..color = const Color(0xFF5798FF)
-      ..style = PaintingStyle.fill;
-
-    for (final point in points) {
-      canvas.drawCircle(point, 3.5, dotPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
-    return oldDelegate.values != values;
-  }
-}
-
-// PURCHASE BAR CHART
-
-class _BarChartPainter extends CustomPainter {
-  final List<double> values;
-
-  _BarChartPainter(this.values);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = const Color(0xFF26364D)
-      ..strokeWidth = 1;
-
-    for (int i = 0; i < 4; i++) {
-      final y = size.height * i / 3;
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
-    }
-
-    if (values.isEmpty) return;
-
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-
-    if (maxValue <= 0) return;
-
-    final barWidth = size.width / (values.length * 1.7);
-
-    final barPaint = Paint()
-      ..color = const Color(0xFF45C99A)
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < values.length; i++) {
-      final height = (values[i] / maxValue) * size.height * 0.85;
-      final x = (i + 0.35) * size.width / values.length;
-
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          x,
-          size.height - height,
-          barWidth,
-          height,
-        ),
-        const Radius.circular(5),
-      );
-
-      canvas.drawRRect(rect, barPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
-    return oldDelegate.values != values;
   }
 }
