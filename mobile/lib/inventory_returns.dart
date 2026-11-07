@@ -1,4 +1,3 @@
-
 part of 'inventory_data.dart';
 
 extension InventoryReturns on InventoryData {
@@ -9,7 +8,7 @@ extension InventoryReturns on InventoryData {
   SalesReturnRecord? findSalesReturn(String returnNumber) {
     try {
       return salesReturns.firstWhere(
-        (e) => e.returnNumber == returnNumber,
+        (item) => item.returnNumber == returnNumber,
       );
     } catch (_) {
       return null;
