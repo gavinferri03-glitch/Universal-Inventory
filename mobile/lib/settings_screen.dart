@@ -84,120 +84,105 @@ class SettingsScreen extends ConsumerWidget {
             title: l10n.enableAllNotifications,
             subtitle: l10n.notificationSettings,
             value: notifications.allNotifications,
-            onChanged: (v) =>
-                notifications.updateSettings(all: v),
+            onChanged: (v) => notifications.updateSettings(all: v),
           ),
 
           _notificationSwitch(
             title: l10n.lowStockAlerts,
             subtitle: l10n.lowStock,
             value: notifications.lowStockAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(lowStock: v),
+            onChanged: (v) => notifications.updateSettings(lowStock: v),
           ),
 
           _notificationSwitch(
             title: l10n.outOfStockAlerts,
             subtitle: l10n.outOfStock,
             value: notifications.outOfStockAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(outOfStock: v),
+            onChanged: (v) => notifications.updateSettings(outOfStock: v),
           ),
 
           _notificationSwitch(
             title: l10n.stockAdjustmentAlerts,
-            subtitle: l10n.adjustments,
+            subtitle: l10n.stockAdjustmentAlerts,
             value: notifications.stockAdjustmentAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(stockAdjustment: v),
+            onChanged: (v) => notifications.updateSettings(stockAdjustment: v),
           ),
 
           _notificationSwitch(
             title: l10n.stockInAlerts,
             subtitle: l10n.stockIn,
             value: notifications.stockInAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(stockIn: v),
+            onChanged: (v) => notifications.updateSettings(stockIn: v),
           ),
 
           _notificationSwitch(
             title: l10n.stockOutAlerts,
             subtitle: l10n.stockOut,
             value: notifications.stockOutAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(stockOut: v),
+            onChanged: (v) => notifications.updateSettings(stockOut: v),
           ),
 
           _notificationSwitch(
             title: l10n.transferAlerts,
-            subtitle: l10n.transfers,
+            subtitle: l10n.transferAlerts,
             value: notifications.transferAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(transfer: v),
+            onChanged: (v) => notifications.updateSettings(transfer: v),
           ),
 
           _notificationSwitch(
             title: l10n.newSaleAlerts,
             subtitle: l10n.sales,
             value: notifications.newSaleAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(newSale: v),
+            onChanged: (v) => notifications.updateSettings(newSale: v),
           ),
 
           _notificationSwitch(
             title: l10n.paymentDueAlerts,
             subtitle: l10n.payment,
             value: notifications.paymentDueAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(paymentDue: v),
+            onChanged: (v) => notifications.updateSettings(paymentDue: v),
           ),
 
           _notificationSwitch(
             title: l10n.overduePaymentAlerts,
             subtitle: l10n.payment,
             value: notifications.overduePaymentAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(overduePayment: v),
+            onChanged: (v) => notifications.updateSettings(overduePayment: v),
           ),
 
           _notificationSwitch(
             title: l10n.salesReturnAlerts,
-            subtitle: l10n.returns,
+            subtitle: l10n.salesReturnAlerts,
             value: notifications.salesReturnAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(salesReturn: v),
+            onChanged: (v) => notifications.updateSettings(salesReturn: v),
           ),
 
           _notificationSwitch(
             title: l10n.supplierAlerts,
             subtitle: l10n.suppliers,
             value: notifications.supplierAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(supplier: v),
+            onChanged: (v) => notifications.updateSettings(supplier: v),
           ),
 
           _notificationSwitch(
             title: l10n.userActivityAlerts,
             subtitle: l10n.users,
             value: notifications.userActivityAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(userActivity: v),
+            onChanged: (v) => notifications.updateSettings(userActivity: v),
           ),
 
           _notificationSwitch(
             title: l10n.backupAlerts,
             subtitle: l10n.dataAndBackup,
             value: notifications.backupAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(backup: v),
+            onChanged: (v) => notifications.updateSettings(backup: v),
           ),
 
           _notificationSwitch(
             title: l10n.syncAlerts,
             subtitle: l10n.syncAlerts,
             value: notifications.syncAlerts,
-            onChanged: (v) =>
-                notifications.updateSettings(sync: v),
+            onChanged: (v) => notifications.updateSettings(sync: v),
           ),
 
           const SizedBox(height: 25),
