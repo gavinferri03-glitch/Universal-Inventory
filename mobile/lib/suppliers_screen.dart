@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'list_tools.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -52,21 +53,141 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   ];
 
   String searchText = '';
+  String selectedSort = 'name_az';
+  String selectedFilter = 'all';
+
+  final Map<String, String> sortOptions = {
+    'name_az': 'Name: A–Z',
+    'name_za': 'Name: Z–A',
+    'code_az': 'Supplier code: A–Z',
+    'code_za': 'Supplier code: Z–A',
+    'newest': 'Newest first',
+    'oldest': 'Oldest first',
+  };
+
+  final Map<String, String> filterOptions = {
+    'all': 'All suppliers',
+    'active': 'Active suppliers',
+    'inactive': 'Inactive suppliers',
+    'cash': 'Cash payment',
+    'credit15': 'Credit 15 Days',
+    'credit30': 'Credit 30 Days',
+    'credit45': 'Credit 45 Days',
+  };
 
   List<Map<String, dynamic>> get filteredSuppliers {
-    return suppliers.where((supplier) {
-      final query = searchText.toLowerCase();
+    final query = searchText.trim().toLowerCase();
 
-      return supplier['name'].toString().toLowerCase().contains(query) ||
-          supplier['code'].toString().toLowerCase().contains(query) ||
-          supplier['contact'].toString().toLowerCase().contains(query);
+    final result = suppliers.where((supplier) {
+      final matchesSearch = query.isEmpty ||
+          [
+            supplier['name'],
+            supplier['code'],
+            supplier['contact'],
+            supplier['phone'],
+            supplier['email'],
+            supplier['address'],
+            supplier['pan'],
+            supplier['payment'],
+          ].any((value) =>
+              value.toString().toLowerCase().contains(query));
+
+      final active = supplier['active'] == true;
+      final payment = supplier['payment'].toString();
+
+      bool matchesFilter = true;
+
+      switch (selectedFilter) {
+        case 'active':
+          matchesFilter = active;
+          break;
+        case 'inactive':
+          matchesFilter = !active;
+          break;
+        case 'cash':
+          matchesFilter = payment == 'Cash';
+          break;
+        case 'credit15':
+          matchesFilter = payment == 'Credit 15 Days';
+          break;
+        case 'credit30':
+          matchesFilter = payment == 'Credit 30 Days';
+          break;
+        case 'credit45':
+          matchesFilter = payment == 'Credit 45 Days';
+          break;
+      }
+
+      return matchesSearch && matchesFilter;
     }).toList();
+
+    switch (selectedSort) {
+      case 'name_az':
+        result.sort((a, b) =>
+            a['name'].toString().toLowerCase().compareTo(
+                b['name'].toString().toLowerCase()));
+        break;
+      case 'name_za':
+        result.sort((a, b) =>
+            b['name'].toString().toLowerCase().compareTo(
+                a['name'].toString().toLowerCase()));
+        break;
+      case 'code_az':
+        result.sort((a, b) =>
+            a['code'].toString().compareTo(b['code'].toString()));
+        break;
+      case 'code_za':
+        result.sort((a, b) =>
+            b['code'].toString().compareTo(a['code'].toString()));
+        break;
+      case 'newest':
+        result.sort((a, b) =>
+            suppliers.indexOf(b).compareTo(suppliers.indexOf(a)));
+        break;
+      case 'oldest':
+        result.sort((a, b) =>
+            suppliers.indexOf(a).compareTo(suppliers.indexOf(b)));
+        break;
+    }
+
+    return result;
   }
 
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: muted),
+      filled: true,
+      fillColor: const Color(0xFF080B12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: muted.withOpacity(0.25)),
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
+      decoration: _decoration(label),
+    );
   }
 
   void showSupplierDialog({int? index}) {
@@ -125,11 +246,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 12),
-                      _field(
-                        addressController,
-                        'Address',
-                        maxLines: 2,
-                      ),
+                      _field(addressController, 'Address', maxLines: 2),
                       const SizedBox(height: 12),
                       _field(panController, 'PAN / VAT Number'),
                       const SizedBox(height: 12),
@@ -140,21 +257,16 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                         decoration: _decoration('Payment Terms'),
                         items: const [
                           DropdownMenuItem(
-                            value: 'Cash',
-                            child: Text('Cash'),
-                          ),
+                              value: 'Cash', child: Text('Cash')),
                           DropdownMenuItem(
-                            value: 'Credit 15 Days',
-                            child: Text('Credit 15 Days'),
-                          ),
+                              value: 'Credit 15 Days',
+                              child: Text('Credit 15 Days')),
                           DropdownMenuItem(
-                            value: 'Credit 30 Days',
-                            child: Text('Credit 30 Days'),
-                          ),
+                              value: 'Credit 30 Days',
+                              child: Text('Credit 30 Days')),
                           DropdownMenuItem(
-                            value: 'Credit 45 Days',
-                            child: Text('Credit 45 Days'),
-                          ),
+                              value: 'Credit 45 Days',
+                              child: Text('Credit 45 Days')),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -207,7 +319,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     final duplicate = suppliers.indexWhere((item) {
                       return item['code'].toString().toLowerCase() ==
                               code.toLowerCase() &&
-                          (!isEditing || suppliers[index] != item);
+                          (!isEditing || item != suppliers[index]);
                     });
 
                     if (duplicate != -1) {
@@ -230,9 +342,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       'address': addressController.text.trim(),
                       'pan': panController.text.trim(),
                       'payment': payment,
-                      'active': isEditing
-                          ? suppliers[index]['active']
-                          : true,
+                      'active':
+                          isEditing ? suppliers[index]['active'] : true,
                     };
 
                     setState(() {
@@ -244,7 +355,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     });
 
                     Navigator.pop(dialogContext);
-
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -262,37 +372,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           },
         );
       },
-    );
-  }
-
-  InputDecoration _decoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: muted),
-      filled: true,
-      fillColor: const Color(0xFF080B12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: muted.withOpacity(0.25)),
-      ),
-    );
-  }
-
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: _decoration(label),
     );
   }
 
@@ -317,10 +396,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              title,
-              style: TextStyle(color: muted, fontSize: 12),
-            ),
+            Text(title, style: TextStyle(color: muted, fontSize: 12)),
           ],
         ),
       ),
@@ -399,10 +475,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  supplier['code'],
-                  style: TextStyle(color: muted),
-                ),
+                Text(supplier['code'], style: TextStyle(color: muted)),
                 const Divider(height: 28, color: Colors.white12),
                 _detailRow('Contact Person', supplier['contact']),
                 _detailRow('Phone', supplier['phone']),
@@ -457,10 +530,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           Expanded(
             child: Text(
               value.isEmpty ? 'Not provided' : value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
         ],
@@ -472,6 +542,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   Widget build(BuildContext context) {
     final activeCount =
         suppliers.where((supplier) => supplier['active'] == true).length;
+
+    final visibleSuppliers = filteredSuppliers;
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
@@ -507,27 +579,26 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: searchController,
-              onChanged: (value) {
+            InventoryListToolbar(
+              searchController: searchController,
+              searchHint: 'Search suppliers...',
+              onSearchChanged: (value) {
                 setState(() => searchText = value);
               },
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search suppliers...',
-                hintStyle: TextStyle(color: muted),
-                prefixIcon: Icon(Icons.search, color: muted),
-                filled: true,
-                fillColor: panel,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              sortOptions: sortOptions,
+              selectedSort: selectedSort,
+              onSortChanged: (value) {
+                setState(() => selectedSort = value);
+              },
+              filterOptions: filterOptions,
+              selectedFilter: selectedFilter,
+              onFilterChanged: (value) {
+                setState(() => selectedFilter = value);
+              },
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: filteredSuppliers.isEmpty
+              child: visibleSuppliers.isEmpty
                   ? Center(
                       child: Text(
                         'No suppliers found.',
@@ -535,9 +606,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       ),
                     )
                   : ListView.builder(
-                      itemCount: filteredSuppliers.length,
+                      itemCount: visibleSuppliers.length,
                       itemBuilder: (context, index) {
-                        final supplier = filteredSuppliers[index];
+                        final supplier = visibleSuppliers[index];
                         final originalIndex = suppliers.indexOf(supplier);
                         final isActive = supplier['active'] == true;
 
@@ -608,10 +679,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                   ),
                                 ),
                                 PopupMenuButton<String>(
-                                  icon: Icon(
-                                    Icons.more_vert,
-                                    color: muted,
-                                  ),
+                                  icon: Icon(Icons.more_vert, color: muted),
                                   color: panel,
                                   onSelected: (value) {
                                     if (value == 'edit') {
