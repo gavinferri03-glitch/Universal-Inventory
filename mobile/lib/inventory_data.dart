@@ -50,6 +50,26 @@ class InventoryProduct {
 }
 
 // ============================================================
+// CATEGORY MODEL
+// ============================================================
+
+class InventoryCategory {
+  final String id;
+  final String name;
+  final String code;
+  final String description;
+  bool active;
+
+  InventoryCategory({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.description,
+    required this.active,
+  });
+}
+
+// ============================================================
 // STOCK MOVEMENT MODEL
 // ============================================================
 
@@ -199,6 +219,41 @@ class InventoryData extends ChangeNotifier {
   }
 
   // ----------------------------------------------------------
+  // CATEGORIES
+  // ----------------------------------------------------------
+
+  final List<InventoryCategory> _categories = [
+    InventoryCategory(
+      id: 'CAT-ID-001',
+      name: 'Electronics',
+      code: 'CAT-001',
+      description: 'Electronic devices and equipment',
+      active: true,
+    ),
+    InventoryCategory(
+      id: 'CAT-ID-002',
+      name: 'Accessories',
+      code: 'CAT-002',
+      description: 'Computer and mobile accessories',
+      active: true,
+    ),
+    InventoryCategory(
+      id: 'CAT-ID-003',
+      name: 'Furniture',
+      code: 'CAT-003',
+      description: 'Office and home furniture',
+      active: true,
+    ),
+    InventoryCategory(
+      id: 'CAT-ID-004',
+      name: 'Other',
+      code: 'CAT-004',
+      description: 'Miscellaneous products',
+      active: true,
+    ),
+  ];
+
+  // ----------------------------------------------------------
   // SAMPLE PRODUCTS
   // ----------------------------------------------------------
 
@@ -308,6 +363,9 @@ class InventoryData extends ChangeNotifier {
   List<InventoryProduct> get products =>
       List.unmodifiable(_products);
 
+  List<InventoryCategory> get categories =>
+      List.unmodifiable(_categories);
+
   List<StockMovement> get movements =>
       List.unmodifiable(_movements);
 
@@ -326,6 +384,9 @@ class InventoryData extends ChangeNotifier {
 
   int get activeBranchCount =>
       _branches.where((branch) => branch.active).length;
+
+  int get activeCategoryCount =>
+      _categories.where((category) => category.active).length;
 
   double get totalSales =>
       _sales.fold(0.0, (total, sale) => total + sale.total);
@@ -371,6 +432,25 @@ class InventoryData extends ChangeNotifier {
     return null;
   }
 
+  InventoryCategory? findCategory(String categoryId) {
+    for (final category in _categories) {
+      if (category.id == categoryId) return category;
+    }
+    return null;
+  }
+
+  InventoryCategory? findCategoryByName(String name) {
+    final cleanName = name.trim().toLowerCase();
+
+    for (final category in _categories) {
+      if (category.name.trim().toLowerCase() == cleanName) {
+        return category;
+      }
+    }
+
+    return null;
+  }
+
   SaleRecord? findSale(String invoiceNumber) {
     for (final sale in _sales) {
       if (sale.invoiceNumber == invoiceNumber) return sale;
@@ -383,6 +463,194 @@ class InventoryData extends ChangeNotifier {
     if (product == null) return 0;
 
     return product.branchQuantities[branchId] ?? 0;
+  }
+
+  int getCategoryProductCount(String categoryId) {
+    final category = findCategory(categoryId);
+    if (category == null) return 0;
+
+    return _products
+        .where((product) => product.category == category.name)
+        .length;
+  }
+
+  List<InventoryProduct> getProductsByCategory(String categoryName) {
+    return List.unmodifiable(
+      _products.where(
+        (product) => product.category == categoryName,
+      ),
+    );
+  }
+
+  // ==========================================================
+  // CATEGORY MANAGEMENT
+  // ==========================================================
+
+  void addCategory({
+    required String name,
+    required String code,
+    String description = '',
+  }) {
+    final cleanName = name.trim();
+    final cleanCode = code.trim();
+
+    if (cleanName.isEmpty || cleanCode.isEmpty) {
+      throw Exception('Category name and code are required.');
+    }
+
+    final duplicateName = _categories.any(
+      (category) =>
+          category.name.toLowerCase() == cleanName.toLowerCase(),
+    );
+
+    if (duplicateName) {
+      throw Exception('A category with this name already exists.');
+    }
+
+    final duplicateCode = _categories.any(
+      (category) =>
+          category.code.toLowerCase() == cleanCode.toLowerCase(),
+    );
+
+    if (duplicateCode) {
+      throw Exception('This category code already exists.');
+    }
+
+    _categories.add(
+      InventoryCategory(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        name: cleanName,
+        code: cleanCode,
+        description: description.trim(),
+        active: true,
+      ),
+    );
+
+    notifyListeners();
+  }
+
+  void updateCategory({
+    required String categoryId,
+    required String name,
+    required String description,
+  }) {
+    final category = findCategory(categoryId);
+
+    if (category == null) {
+      throw Exception('Category not found.');
+    }
+
+    final cleanName = name.trim();
+
+    if (cleanName.isEmpty) {
+      throw Exception('Category name is required.');
+    }
+
+    final duplicateName = _categories.any(
+      (item) =>
+          item.id != categoryId &&
+          item.name.toLowerCase() == cleanName.toLowerCase(),
+    );
+
+    if (duplicateName) {
+      throw Exception('A category with this name already exists.');
+    }
+
+    final oldName = category.name;
+
+    final index = _categories.indexOf(category);
+
+    _categories[index] = InventoryCategory(
+      id: category.id,
+      name: cleanName,
+      code: category.code,
+      description: description.trim(),
+      active: category.active,
+    );
+
+    // Update every product linked to the renamed category.
+    for (var i = 0; i < _products.length; i++) {
+      final product = _products[i];
+
+      if (product.category == oldName) {
+        _products[i] = _copyProduct(
+          product,
+          category: cleanName,
+        );
+      }
+    }
+
+    notifyListeners();
+  }
+
+  void toggleCategoryStatus(String categoryId) {
+    final category = findCategory(categoryId);
+
+    if (category == null) {
+      throw Exception('Category not found.');
+    }
+
+    category.active = !category.active;
+    notifyListeners();
+  }
+
+  void deleteCategory(String categoryId) {
+    final category = findCategory(categoryId);
+
+    if (category == null) {
+      throw Exception('Category not found.');
+    }
+
+    final isUsed = _products.any(
+      (product) => product.category == category.name,
+    );
+
+    if (isUsed) {
+      throw Exception(
+        'This category is assigned to products. '
+        'Move those products to another category before deleting it.',
+      );
+    }
+
+    _categories.removeWhere(
+      (item) => item.id == categoryId,
+    );
+
+    notifyListeners();
+  }
+
+  // ==========================================================
+  // PRODUCT COPY HELPER
+  // ==========================================================
+
+  InventoryProduct _copyProduct(
+    InventoryProduct product, {
+    String? name,
+    String? category,
+    String? barcode,
+    String? description,
+    double? costPrice,
+    double? sellingPrice,
+    String? unit,
+    int? minimumStock,
+    String? supplier,
+  }) {
+    return InventoryProduct(
+      id: product.id,
+      name: name ?? product.name,
+      sku: product.sku,
+      category: category ?? product.category,
+      barcode: barcode ?? product.barcode,
+      description: description ?? product.description,
+      costPrice: costPrice ?? product.costPrice,
+      sellingPrice: sellingPrice ?? product.sellingPrice,
+      unit: unit ?? product.unit,
+      minimumStock: minimumStock ?? product.minimumStock,
+      supplier: supplier ?? product.supplier,
+      quantity: product.quantity,
+      branchQuantities:
+          Map<String, int>.from(product.branchQuantities),
+    );
   }
 
   // ==========================================================
@@ -434,9 +702,24 @@ class InventoryData extends ChangeNotifier {
   }) {
     final cleanName = name.trim();
     final cleanSku = sku.trim();
+    final cleanCategory = category.trim();
 
     if (cleanName.isEmpty || cleanSku.isEmpty) {
       throw Exception('Product name and SKU are required.');
+    }
+
+    if (cleanCategory.isEmpty) {
+      throw Exception('Product category is required.');
+    }
+
+    final selectedCategory = findCategoryByName(cleanCategory);
+
+    if (selectedCategory == null) {
+      throw Exception('Please select a valid category.');
+    }
+
+    if (!selectedCategory.active) {
+      throw Exception('This category is inactive.');
     }
 
     if (sellingPrice < 0 ||
@@ -463,7 +746,7 @@ class InventoryData extends ChangeNotifier {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: cleanName,
       sku: cleanSku,
-      category: category.trim(),
+      category: selectedCategory.name,
       barcode: barcode.trim(),
       description: description.trim(),
       costPrice: costPrice,
@@ -520,9 +803,20 @@ class InventoryData extends ChangeNotifier {
 
     final oldProduct = _products[index];
     final cleanName = name.trim();
+    final cleanCategory = category.trim();
 
     if (cleanName.isEmpty) {
       throw Exception('Product name is required.');
+    }
+
+    final selectedCategory = findCategoryByName(cleanCategory);
+
+    if (selectedCategory == null) {
+      throw Exception('Please select a valid category.');
+    }
+
+    if (!selectedCategory.active) {
+      throw Exception('This category is inactive.');
     }
 
     if (costPrice < 0 ||
@@ -531,12 +825,10 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Prices and minimum stock cannot be negative.');
     }
 
-    // SKU, quantity and branch stock remain unchanged.
-    _products[index] = InventoryProduct(
-      id: oldProduct.id,
+    _products[index] = _copyProduct(
+      oldProduct,
       name: cleanName,
-      sku: oldProduct.sku,
-      category: category.trim(),
+      category: selectedCategory.name,
       barcode: barcode.trim(),
       description: description.trim(),
       costPrice: costPrice,
@@ -544,10 +836,6 @@ class InventoryData extends ChangeNotifier {
       unit: unit.trim().isEmpty ? oldProduct.unit : unit.trim(),
       minimumStock: minimumStock,
       supplier: supplier.trim(),
-      quantity: oldProduct.quantity,
-      branchQuantities: Map<String, int>.from(
-        oldProduct.branchQuantities,
-      ),
     );
 
     notifyListeners();
