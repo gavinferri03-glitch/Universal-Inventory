@@ -235,14 +235,14 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     );
                   } else {
                     data.addCustomer(
-                      name: name.text,
-                      phone: phone.text,
-                      email: email.text,
-                      address: address.text,
-                      city: city.text,
-                      country: country.text,
-                      notes: notes.text,
-                    );
+  name.text,
+  phone.text,
+  email.text,
+  address.text,
+  city.text,
+  country.text,
+  notes.text,
+);
                   }
 
                   Navigator.pop(dialogContext);
