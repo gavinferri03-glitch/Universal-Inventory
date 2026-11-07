@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'inventory_data.dart';
+import 'list_tools.dart';
 
 class StockScreen extends ConsumerStatefulWidget {
   const StockScreen({super.key});
@@ -17,7 +18,54 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   static const Color panel = Color(0xFF121D2D);
   static const Color muted = Color(0xFF91A4BE);
 
+  final TextEditingController movementSearchController =
+      TextEditingController();
+  final TextEditingController productSearchController =
+      TextEditingController();
+
+  String movementSearch = '';
+  String productSearch = '';
   String selectedFilter = 'All';
+  String movementSort = 'newest';
+  String productSort = 'name_az';
+
+  final Map<String, String> movementSortOptions = {
+    'newest': 'Newest first',
+    'oldest': 'Oldest first',
+    'quantity_high': 'Highest quantity',
+    'quantity_low': 'Lowest quantity',
+    'product_az': 'Product A–Z',
+    'product_za': 'Product Z–A',
+  };
+
+  final Map<String, String> movementFilterOptions = {
+    'All': 'All movements',
+    'Stock In': 'Stock In',
+    'Stock Out': 'Stock Out',
+    'Transfers': 'Transfers',
+  };
+
+  final Map<String, String> productSortOptions = {
+    'name_az': 'Product name A–Z',
+    'name_za': 'Product name Z–A',
+    'stock_high': 'Highest stock first',
+    'stock_low': 'Lowest stock first',
+  };
+
+  final Map<String, String> productFilterOptions = {
+    'all': 'All products',
+    'in_stock': 'In-stock products',
+    'out_stock': 'Out-of-stock products',
+  };
+
+  String productFilter = 'all';
+
+  @override
+  void dispose() {
+    movementSearchController.dispose();
+    productSearchController.dispose();
+    super.dispose();
+  }
 
   String formatDate(DateTime date) {
     final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
@@ -41,12 +89,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   Future<void> addMovement(String type) async {
     final inventory = ref.read(inventoryProvider);
     final products = inventory.products;
-    final branches =
-        inventory.branches.where((b) => b.active).toList();
+    final branches = inventory.branches.where((b) => b.active).toList();
 
     if (products.isEmpty || branches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a product and active branch first.')),
+        const SnackBar(
+          content: Text('Add a product and active branch first.'),
+        ),
       );
       return;
     }
@@ -60,8 +109,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, refresh) {
-            final product =
-                products.firstWhere((p) => p.id == productId);
+            final product = products.firstWhere((p) => p.id == productId);
             final branchStock =
                 inventory.getBranchQuantity(productId, branchId);
 
@@ -186,260 +234,12 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final inventory = ref.watch(inventoryProvider);
-    final movements = inventory.movements;
-
-    final totalReceived = movements
-        .where((m) => m.type == 'Stock In')
-        .fold<int>(0, (sum, m) => sum + m.quantity);
-
-    final totalIssued = movements
-        .where((m) => m.type == 'Stock Out')
-        .fold<int>(0, (sum, m) => sum + m.quantity);
-
-    final filtered = movements.where((m) {
-      if (selectedFilter == 'All') return true;
-      if (selectedFilter == 'Transfers') {
-        return m.type.startsWith('Transfer');
-      }
-      return m.type == selectedFilter;
-    }).toList();
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B12),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF080B12),
-        title: const Text('Stock Management'),
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const Text(
-              'Stock Overview',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: summaryCard('Stock In', totalReceived, green),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: summaryCard('Stock Out', totalIssued, orange),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            summaryCard(
-              'Total Current Stock',
-              inventory.totalStock,
-              blue,
-              wide: true,
-            ),
-            const SizedBox(height: 26),
-
-            const Text(
-              'Stock Actions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: actionButton(
-                    'Stock In',
-                    'Receive products',
-                    Icons.add_circle_outline,
-                    green,
-                    () => addMovement('Stock In'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: actionButton(
-                    'Stock Out',
-                    'Issue products',
-                    Icons.remove_circle_outline,
-                    orange,
-                    () => addMovement('Stock Out'),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 26),
-            const Text(
-              'Branch-wise Stock',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            ...inventory.products.map((product) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: panel,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: const Color(0xFF26364D)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      '${product.sku} • Total: ${product.quantity} ${product.unit}',
-                      style: const TextStyle(color: muted, fontSize: 12),
-                    ),
-                    const Divider(color: Colors.white12, height: 22),
-                    ...inventory.branches.map((branch) {
-                      final quantity = inventory.getBranchQuantity(
-                        product.id,
-                        branch.id,
-                      );
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                branch.name,
-                                style: const TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                            Text(
-                              '$quantity ${product.unit}',
-                              style: TextStyle(
-                                color: quantity > 0 ? green : muted,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              );
-            }),
-
-            const SizedBox(height: 18),
-            const Text(
-              'Movement History',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 7,
-              children: ['All', 'Stock In', 'Stock Out', 'Transfers'].map((f) {
-                return ChoiceChip(
-                  label: Text(f),
-                  selected: selectedFilter == f,
-                  onSelected: (_) => setState(() => selectedFilter = f),
-                  selectedColor: blue.withOpacity(0.2),
-                  backgroundColor: panel,
-                  labelStyle: TextStyle(
-                    color: selectedFilter == f ? blue : Colors.white70,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-
-            if (filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: Text(
-                    'No movements found.',
-                    style: TextStyle(color: muted),
-                  ),
-                ),
-              ),
-
-            ...filtered.map((movement) {
-              final branch = inventory.findBranch(movement.branchId);
-              final isIn = movement.type == 'Stock In';
-              final isTransfer = movement.type.startsWith('Transfer');
-              final color = isIn
-                  ? green
-                  : isTransfer
-                      ? blue
-                      : orange;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 9),
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color: panel,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isIn
-                          ? Icons.call_received
-                          : isTransfer
-                              ? Icons.swap_horiz
-                              : Icons.call_made,
-                      color: color,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            movement.productName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '${movement.type} • ${branch?.name ?? "Unknown branch"}',
-                            style: const TextStyle(color: muted, fontSize: 11),
-                          ),
-                          Text(
-                            formatDate(movement.date),
-                            style: const TextStyle(color: muted, fontSize: 10),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '${isIn || isTransfer && movement.type == "Transfer In" ? "+" : "-"}${movement.quantity}',
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget summaryCard(String title, int value, Color color,
-      {bool wide = false}) {
+  Widget summaryCard(
+    String title,
+    int value,
+    Color color, {
+    bool wide = false,
+  }) {
     return Container(
       width: wide ? double.infinity : null,
       padding: const EdgeInsets.all(15),
@@ -504,6 +304,361 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               subtitle,
               style: const TextStyle(color: muted, fontSize: 11),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inventory = ref.watch(inventoryProvider);
+    final movements = inventory.movements;
+
+    final totalReceived = movements
+        .where((m) => m.type == 'Stock In')
+        .fold<int>(0, (sum, m) => sum + m.quantity);
+
+    final totalIssued = movements
+        .where((m) => m.type == 'Stock Out')
+        .fold<int>(0, (sum, m) => sum + m.quantity);
+
+    final visibleProducts = inventory.products.where((product) {
+      final query = productSearch.trim().toLowerCase();
+
+      final matchesSearch = query.isEmpty ||
+          product.name.toLowerCase().contains(query) ||
+          product.sku.toLowerCase().contains(query);
+
+      final quantity = product.quantity;
+      final matchesFilter = productFilter == 'all' ||
+          (productFilter == 'in_stock' && quantity > 0) ||
+          (productFilter == 'out_stock' && quantity <= 0);
+
+      return matchesSearch && matchesFilter;
+    }).toList();
+
+    switch (productSort) {
+      case 'name_az':
+        visibleProducts.sort((a, b) => a.name.toLowerCase().compareTo(
+              b.name.toLowerCase(),
+            ));
+        break;
+      case 'name_za':
+        visibleProducts.sort((a, b) => b.name.toLowerCase().compareTo(
+              a.name.toLowerCase(),
+            ));
+        break;
+      case 'stock_high':
+        visibleProducts.sort((a, b) => b.quantity.compareTo(a.quantity));
+        break;
+      case 'stock_low':
+        visibleProducts.sort((a, b) => a.quantity.compareTo(b.quantity));
+        break;
+    }
+
+    final visibleMovements = movements.where((movement) {
+      final branch = inventory.findBranch(movement.branchId);
+      final query = movementSearch.trim().toLowerCase();
+
+      final matchesSearch = query.isEmpty ||
+          movement.productName.toLowerCase().contains(query) ||
+          movement.type.toLowerCase().contains(query) ||
+          (branch?.name.toLowerCase().contains(query) ?? false);
+
+      final matchesFilter = selectedFilter == 'All' ||
+          (selectedFilter == 'Transfers'
+              ? movement.type.startsWith('Transfer')
+              : movement.type == selectedFilter);
+
+      return matchesSearch && matchesFilter;
+    }).toList();
+
+    switch (movementSort) {
+      case 'newest':
+        visibleMovements.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'oldest':
+        visibleMovements.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'quantity_high':
+        visibleMovements.sort((a, b) => b.quantity.compareTo(a.quantity));
+        break;
+      case 'quantity_low':
+        visibleMovements.sort((a, b) => a.quantity.compareTo(b.quantity));
+        break;
+      case 'product_az':
+        visibleMovements.sort((a, b) =>
+            a.productName.toLowerCase().compareTo(
+                  b.productName.toLowerCase(),
+                ));
+        break;
+      case 'product_za':
+        visibleMovements.sort((a, b) =>
+            b.productName.toLowerCase().compareTo(
+                  a.productName.toLowerCase(),
+                ));
+        break;
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF080B12),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF080B12),
+        title: const Text('Stock Management'),
+        foregroundColor: Colors.white,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const Text(
+              'Stock Overview',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: summaryCard('Stock In', totalReceived, green),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: summaryCard('Stock Out', totalIssued, orange),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            summaryCard(
+              'Total Current Stock',
+              inventory.totalStock,
+              blue,
+              wide: true,
+            ),
+            const SizedBox(height: 26),
+            const Text(
+              'Stock Actions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: actionButton(
+                    'Stock In',
+                    'Receive products',
+                    Icons.add_circle_outline,
+                    green,
+                    () => addMovement('Stock In'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: actionButton(
+                    'Stock Out',
+                    'Issue products',
+                    Icons.remove_circle_outline,
+                    orange,
+                    () => addMovement('Stock Out'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 26),
+            const Text(
+              'Branch-wise Stock',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            InventoryListToolbar(
+              searchController: productSearchController,
+              searchHint: 'Search products by name or SKU...',
+              onSearchChanged: (value) {
+                setState(() => productSearch = value);
+              },
+              sortOptions: productSortOptions,
+              selectedSort: productSort,
+              onSortChanged: (value) {
+                setState(() => productSort = value);
+              },
+              filterOptions: productFilterOptions,
+              selectedFilter: productFilter,
+              onFilterChanged: (value) {
+                setState(() => productFilter = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            if (visibleProducts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: Text(
+                    'No products found.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+              ),
+            ...visibleProducts.map((product) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: panel,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: const Color(0xFF26364D)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      '${product.sku} • Total: ${product.quantity} ${product.unit}',
+                      style: const TextStyle(color: muted, fontSize: 12),
+                    ),
+                    const Divider(color: Colors.white12, height: 22),
+                    ...inventory.branches.map((branch) {
+                      final quantity = inventory.getBranchQuantity(
+                        product.id,
+                        branch.id,
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                branch.name,
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                            Text(
+                              '$quantity ${product.unit}',
+                              style: TextStyle(
+                                color: quantity > 0 ? green : muted,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 18),
+            const Text(
+              'Movement History',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            InventoryListToolbar(
+              searchController: movementSearchController,
+              searchHint: 'Search product, branch or movement...',
+              onSearchChanged: (value) {
+                setState(() => movementSearch = value);
+              },
+              sortOptions: movementSortOptions,
+              selectedSort: movementSort,
+              onSortChanged: (value) {
+                setState(() => movementSort = value);
+              },
+              filterOptions: movementFilterOptions,
+              selectedFilter: selectedFilter,
+              onFilterChanged: (value) {
+                setState(() => selectedFilter = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            if (visibleMovements.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: Text(
+                    'No movements found.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+              ),
+            ...visibleMovements.map((movement) {
+              final branch = inventory.findBranch(movement.branchId);
+              final isIn = movement.type == 'Stock In';
+              final isTransfer = movement.type.startsWith('Transfer');
+              final color = isIn
+                  ? green
+                  : isTransfer
+                      ? blue
+                      : orange;
+
+              final isPositive =
+                  isIn || movement.type == 'Transfer In';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: panel,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isIn
+                          ? Icons.call_received
+                          : isTransfer
+                              ? Icons.swap_horiz
+                              : Icons.call_made,
+                      color: color,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            movement.productName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '${movement.type} • ${branch?.name ?? "Unknown branch"}',
+                            style: const TextStyle(
+                              color: muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            formatDate(movement.date),
+                            style: const TextStyle(
+                              color: muted,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${isPositive ? "+" : "-"}${movement.quantity}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
