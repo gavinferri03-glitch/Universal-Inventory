@@ -1703,6 +1703,7 @@ class InventoryData extends ChangeNotifier {
     required Map<String, int> quantities,
     String reason = '',
   }) {
+    // Find the original sale.
     final sale = findSale(invoiceNumber);
 
     if (sale == null) {
@@ -1713,13 +1714,15 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Select at least one product to return.');
     }
 
+    // Returns must go back to the original sale branch.
     final branch = findBranch(sale.branchId);
 
     if (branch == null) {
       throw Exception('The original sale branch could not be found.');
     }
 
-    // Combine quantities from duplicate product lines.
+    // Combine quantities if the same product appears on
+    // multiple lines of the original invoice.
     final soldQuantities = <String, int>{};
     final originalLines = <String, SaleLineItem>{};
 
@@ -1739,7 +1742,9 @@ class InventoryData extends ChangeNotifier {
       final returnQuantity = entry.value;
 
       if (returnQuantity <= 0) {
-        throw Exception('Return quantities must be greater than zero.');
+        throw Exception(
+          'Return quantities must be greater than zero.',
+        );
       }
 
       final soldQuantity = soldQuantities[productId];
@@ -1753,13 +1758,14 @@ class InventoryData extends ChangeNotifier {
       final alreadyReturned =
           returnedQuantityFor(invoiceNumber, productId);
 
-      final remainingReturnable = soldQuantity - alreadyReturned;
+      final remainingReturnable =
+          soldQuantity - alreadyReturned;
 
       if (returnQuantity > remainingReturnable) {
-        final originalLine = originalLines[productId];
+        final originalLine = originalLines[productId]!;
 
         throw Exception(
-          'Only $remainingReturnable ${originalLine!.productName} '
+          'Only $remainingReturnable ${originalLine.productName} '
           'can still be returned.',
         );
       }
@@ -1771,10 +1777,10 @@ class InventoryData extends ChangeNotifier {
       }
     }
 
+    // Prepare the return details.
     final returnDate = DateTime.now();
     final returnLines = <SalesReturnLine>[];
 
-    // Build return details from the original invoice.
     for (final entry in quantities.entries) {
       final originalLine = originalLines[entry.key]!;
 
@@ -1794,12 +1800,14 @@ class InventoryData extends ChangeNotifier {
       (sum, item) => sum + item.total,
     );
 
+    // IMPORTANT:
+    // These field names match SalesReturnRecord in Part 1.
     final returnRecord = SalesReturnRecord(
       returnNumber: generateReturnCode(),
-      invoiceNumber: sale.invoiceNumber,
+      originalInvoiceNumber: sale.invoiceNumber,
       branchId: sale.branchId,
       customerName: sale.customerName,
-      lines: returnLines,
+      items: returnLines,
       total: returnTotal,
       reason: reason.trim(),
       date: returnDate,
@@ -1840,6 +1848,7 @@ class InventoryData extends ChangeNotifier {
 
       _products[productIndex] = updatedProduct;
 
+      // Record the stock movement.
       _movements.insert(
         0,
         _createMovement(
@@ -1852,11 +1861,14 @@ class InventoryData extends ChangeNotifier {
         ),
       );
 
+      // Recheck stock alerts after the stock update.
       _checkStockAlerts(updatedProduct, previousQuantity);
     }
 
+    // Save the return record.
     _salesReturns.insert(0, returnRecord);
 
+    // Notify the user.
     notificationCenter.add(
       title: 'Sales Return Created',
       message:
@@ -1894,7 +1906,8 @@ class InventoryData extends ChangeNotifier {
         : generateBranchCode();
 
     if (_branches.any(
-      (branch) => branch.code.toLowerCase() == branchCode.toLowerCase(),
+      (branch) =>
+          branch.code.toLowerCase() == branchCode.toLowerCase(),
     )) {
       throw Exception('A branch with this code already exists.');
     }
