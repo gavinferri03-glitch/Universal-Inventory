@@ -1,4 +1,3 @@
-
 name: universal_inventory
 description: Universal Inventory mobile application
 publish_to: "none"
@@ -28,6 +27,10 @@ dependencies:
   # Images and company profile
   image_picker: ^1.1.2
   country_picker: ^2.0.27
+
+  # Purchase and supplier return PDF documents
+  pdf: ^3.11.3
+  printing: ^5.14.3
 
 dev_dependencies:
   flutter_test:
