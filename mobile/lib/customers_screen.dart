@@ -50,8 +50,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     super.dispose();
   }
 
-  List<InventoryCustomer> getCustomers(
-      InventoryData data) {
+  List<InventoryCustomer> getCustomers(InventoryData data) {
     final query = searchText.trim().toLowerCase();
 
     final result = data.searchCustomers(query).where((customer) {
@@ -197,7 +196,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '* Enter at least a phone number or email.',
+                      '* Customer name is required.',
                       style: TextStyle(color: muted, fontSize: 11),
                     ),
                   ),
@@ -235,14 +234,14 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     );
                   } else {
                     data.addCustomer(
-  name.text,
-  phone.text,
-  email.text,
-  address.text,
-  city.text,
-  country.text,
-  notes.text,
-);
+                      name.text,
+                      phone.text,
+                      email.text,
+                      address.text,
+                      city.text,
+                      country.text,
+                      notes.text,
+                    );
                   }
 
                   Navigator.pop(dialogContext);
@@ -299,8 +298,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           TextButton(
             onPressed: () {
               try {
-                ref.read(inventoryProvider)
-                    .deleteCustomer(customer.id);
+                ref.read(inventoryProvider).deleteCustomer(customer.id);
 
                 Navigator.pop(dialogContext);
 
@@ -329,8 +327,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   void _toggleStatus(InventoryCustomer customer) {
     try {
-      ref.read(inventoryProvider)
-          .toggleCustomerStatus(customer.id);
+      ref.read(inventoryProvider).toggleCustomerStatus(customer.id);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -618,6 +615,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     final data = ref.watch(inventoryProvider);
     final customers = getCustomers(data);
 
+    final totalCount = data.customers.length;
+    final activeCount = data.activeCustomerCount;
+    final inactiveCount = totalCount - activeCount;
+
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -641,20 +642,19 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 children: [
                   _summaryCard(
                     'Total',
-                    data.totalCustomerCount,
+                    totalCount,
                     Icons.people,
                   ),
                   const SizedBox(width: 10),
                   _summaryCard(
                     'Active',
-                    data.activeCustomerCount,
+                    activeCount,
                     Icons.person,
                   ),
                   const SizedBox(width: 10),
                   _summaryCard(
                     'Inactive',
-                    data.totalCustomerCount -
-                        data.activeCustomerCount,
+                    inactiveCount,
                     Icons.person_off,
                   ),
                 ],
