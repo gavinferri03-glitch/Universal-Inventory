@@ -272,3 +272,143 @@ class SalesReturnRecord {
     required this.date,
   });
 }
+
+// ============================================================
+// PURCHASE ORDER LINE MODEL
+// ============================================================
+
+class PurchaseOrderLine {
+  final String productId;
+  final String productName;
+  final String sku;
+  final String unit;
+  final int quantity;
+  final double unitCost;
+
+  PurchaseOrderLine({
+    required this.productId,
+    required this.productName,
+    required this.sku,
+    this.unit = 'Pieces',
+    required this.quantity,
+    required this.unitCost,
+  });
+
+  double get total => quantity * unitCost;
+}
+
+// ============================================================
+// PURCHASE ORDER MODEL
+// ============================================================
+
+class PurchaseOrderRecord {
+  final String purchaseOrderNumber;
+  final String supplierInvoiceNumber;
+  final String supplierName;
+  final String supplierPhone;
+  final String supplierAddress;
+  final String branchId;
+  final List<PurchaseOrderLine> items;
+  final double subtotal;
+  final double discount;
+  final double tax;
+  final double total;
+  final double amountPaid;
+  final String paymentMethod;
+  final String status;
+  final String notes;
+  final DateTime date;
+
+  PurchaseOrderRecord({
+    required this.purchaseOrderNumber,
+    this.supplierInvoiceNumber = '',
+    required this.supplierName,
+    this.supplierPhone = '',
+    this.supplierAddress = '',
+    required this.branchId,
+    required this.items,
+    required this.subtotal,
+    this.discount = 0,
+    this.tax = 0,
+    required this.total,
+    this.amountPaid = 0,
+    this.paymentMethod = 'Cash',
+    this.status = 'Received',
+    this.notes = '',
+    required this.date,
+  });
+
+  double get balanceDue =>
+      (total - amountPaid).clamp(0, double.infinity).toDouble();
+
+  double get change =>
+      (amountPaid - total).clamp(0, double.infinity).toDouble();
+
+  String get paymentStatus {
+    if (amountPaid <= 0) return 'Unpaid';
+    if (amountPaid >= total) return 'Paid';
+    return 'Partially Paid';
+  }
+
+  int get totalUnits =>
+      items.fold(0, (sum, item) => sum + item.quantity);
+}
+
+// ============================================================
+// SUPPLIER RETURN LINE MODEL
+// ============================================================
+
+class SupplierReturnLine {
+  final String productId;
+  final String productName;
+  final String sku;
+  final String unit;
+  final int quantity;
+  final double unitCost;
+
+  SupplierReturnLine({
+    required this.productId,
+    required this.productName,
+    required this.sku,
+    this.unit = 'Pieces',
+    required this.quantity,
+    required this.unitCost,
+  });
+
+  double get total => quantity * unitCost;
+}
+
+// ============================================================
+// SUPPLIER RETURN MODEL
+// ============================================================
+
+class SupplierReturnRecord {
+  final String returnNumber;
+  final String originalPurchaseOrderNumber;
+  final String supplierName;
+  final String supplierPhone;
+  final String branchId;
+  final List<SupplierReturnLine> items;
+  final double total;
+  final String reason;
+  final String settlementType;
+  final String notes;
+  final DateTime date;
+
+  SupplierReturnRecord({
+    required this.returnNumber,
+    required this.originalPurchaseOrderNumber,
+    required this.supplierName,
+    this.supplierPhone = '',
+    required this.branchId,
+    required this.items,
+    required this.total,
+    required this.reason,
+    this.settlementType = 'Supplier Credit',
+    this.notes = '',
+    required this.date,
+  });
+
+  int get totalUnits =>
+      items.fold(0, (sum, item) => sum + item.quantity);
+}
