@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -786,6 +785,63 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       minimumController.dispose();
       supplierController.dispose();
     });
+  }  // ==========================================================
+  // DELETE PRODUCT
+  // ==========================================================
+
+  Future<bool> _confirmDeleteProduct(
+    InventoryProduct product,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: panel,
+          title: const Text(
+            'Delete Product?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${product.name}"? '
+            'This action cannot be undone.',
+            style: TextStyle(color: muted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return false;
+    }
+
+    try {
+      ref.read(inventoryProvider).deleteProduct(product.id);
+      showMessage('Product deleted successfully.');
+      return true;
+    } catch (error) {
+      showMessage(
+        error.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
   }
 
   // ==========================================================
@@ -857,6 +913,33 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blue,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 13,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final deleted =
+                          await _confirmDeleteProduct(product);
+
+                      if (deleted && sheetContext.mounted) {
+                        Navigator.pop(sheetContext, false);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete Product'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      side: const BorderSide(
+                        color: Colors.redAccent,
+                      ),
                       padding: const EdgeInsets.symmetric(
                         vertical: 13,
                       ),
@@ -986,9 +1069,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ],
       ),
     );
-  }
-
-  // ==========================================================
+  }  // ==========================================================
   // MAIN SCREEN
   // ==========================================================
 
