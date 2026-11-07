@@ -36,6 +36,30 @@ class StockMovement {
   });
 }
 
+class InventoryBranch {
+  final String id;
+  final String name;
+  final String code;
+  final String city;
+  final String address;
+  final String phone;
+  final String email;
+  final String manager;
+  bool active;
+
+  InventoryBranch({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.city,
+    required this.address,
+    required this.phone,
+    required this.email,
+    required this.manager,
+    required this.active,
+  });
+}
+
 class InventoryData extends ChangeNotifier {
   final List<InventoryProduct> _products = [
     InventoryProduct(
@@ -74,17 +98,59 @@ class InventoryData extends ChangeNotifier {
 
   final List<StockMovement> _movements = [];
 
+  final List<InventoryBranch> _branches = [
+    InventoryBranch(
+      id: '1',
+      name: 'Main Branch',
+      code: 'BR-001',
+      city: 'Kathmandu',
+      address: 'New Road, Kathmandu',
+      phone: '9800000001',
+      email: 'kathmandu@example.com',
+      manager: 'Branch Manager',
+      active: true,
+    ),
+    InventoryBranch(
+      id: '2',
+      name: 'Pokhara Branch',
+      code: 'BR-002',
+      city: 'Pokhara',
+      address: 'Lakeside, Pokhara',
+      phone: '9800000002',
+      email: 'pokhara@example.com',
+      manager: 'Branch Manager',
+      active: true,
+    ),
+    InventoryBranch(
+      id: '3',
+      name: 'Lalitpur Branch',
+      code: 'BR-003',
+      city: 'Lalitpur',
+      address: 'Jawalakhel, Lalitpur',
+      phone: '9800000003',
+      email: 'lalitpur@example.com',
+      manager: 'Branch Manager',
+      active: false,
+    ),
+  ];
+
   List<InventoryProduct> get products =>
       List.unmodifiable(_products);
 
   List<StockMovement> get movements =>
       List.unmodifiable(_movements);
 
+  List<InventoryBranch> get branches =>
+      List.unmodifiable(_branches);
+
   int get totalStock =>
       _products.fold(0, (total, product) => total + product.quantity);
 
   int get lowStockCount =>
       _products.where((product) => product.quantity <= 5).length;
+
+  int get activeBranchCount =>
+      _branches.where((branch) => branch.active).length;
 
   InventoryProduct? findProduct(String productId) {
     for (final product in _products) {
@@ -175,6 +241,93 @@ class InventoryData extends ChangeNotifier {
       ),
     );
 
+    notifyListeners();
+  }
+
+  void addBranch({
+    required String name,
+    required String code,
+    required String city,
+    required String address,
+    required String phone,
+    required String email,
+    required String manager,
+  }) {
+    final duplicate = _branches.any(
+      (branch) => branch.code.toLowerCase() == code.toLowerCase(),
+    );
+
+    if (duplicate) {
+      throw Exception('This branch code already exists.');
+    }
+
+    _branches.add(
+      InventoryBranch(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        name: name,
+        code: code,
+        city: city,
+        address: address,
+        phone: phone,
+        email: email,
+        manager: manager,
+        active: true,
+      ),
+    );
+
+    notifyListeners();
+  }
+
+  void updateBranch({
+    required String id,
+    required String name,
+    required String code,
+    required String city,
+    required String address,
+    required String phone,
+    required String email,
+    required String manager,
+  }) {
+    final index = _branches.indexWhere((branch) => branch.id == id);
+
+    if (index == -1) {
+      throw Exception('Branch not found.');
+    }
+
+    final duplicate = _branches.any(
+      (branch) =>
+          branch.code.toLowerCase() == code.toLowerCase() &&
+          branch.id != id,
+    );
+
+    if (duplicate) {
+      throw Exception('This branch code already exists.');
+    }
+
+    final oldBranch = _branches[index];
+
+    _branches[index] = InventoryBranch(
+      id: oldBranch.id,
+      name: name,
+      code: code,
+      city: city,
+      address: address,
+      phone: phone,
+      email: email,
+      manager: manager,
+      active: oldBranch.active,
+    );
+
+    notifyListeners();
+  }
+
+  void toggleBranchStatus(String id) {
+    final branch = _branches.firstWhere(
+      (branch) => branch.id == id,
+      orElse: () => throw Exception('Branch not found.'),
+    );
+
+    branch.active = !branch.active;
     notifyListeners();
   }
 }
