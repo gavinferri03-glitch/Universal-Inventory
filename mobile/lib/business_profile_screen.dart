@@ -44,6 +44,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   String? _logoPath;
   bool _loading = true;
   bool _savingLogo = false;
+  bool _savingProfile = false;
 
   @override
   void initState() {
@@ -70,15 +71,26 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
+      companyName.text = prefs.getString('company_name') ?? '';
+      legalName.text = prefs.getString('company_legal_name') ?? '';
+      businessType =
+          prefs.getString('company_business_type') ?? 'Retail';
+      registrationNumber.text =
+          prefs.getString('company_registration_number') ?? '';
+      panVatNumber.text = prefs.getString('company_pan_vat') ?? '';
+      phoneNumber.text = prefs.getString('company_phone') ?? '';
+      emailAddress.text = prefs.getString('company_email') ?? '';
+      website.text = prefs.getString('company_website') ?? '';
+      address.text = prefs.getString('company_address') ?? '';
+      city.text = prefs.getString('company_city') ?? '';
+      district.text = prefs.getString('company_district') ?? '';
+
+      country = prefs.getString(_countryKey) ?? 'Nepal';
+
       final savedLogo = prefs.getString(_logoKey);
-      final savedCountry = prefs.getString(_countryKey);
 
       if (savedLogo != null && await File(savedLogo).exists()) {
         _logoPath = savedLogo;
-      }
-
-      if (savedCountry != null && savedCountry.isNotEmpty) {
-        country = savedCountry;
       }
     } catch (e) {
       debugPrint('Could not load company details: $e');
@@ -198,10 +210,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         inputDecoration: InputDecoration(
           hintText: 'Search country',
           hintStyle: const TextStyle(color: muted),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: muted,
-          ),
+          prefixIcon: const Icon(Icons.search, color: muted),
           filled: true,
           fillColor: background,
           border: OutlineInputBorder(
@@ -534,10 +543,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_drop_down,
-              color: muted,
-            ),
+            const Icon(Icons.arrow_drop_down, color: muted),
           ],
         ),
       ),
@@ -545,27 +551,50 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (_savingProfile) return;
     if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _savingProfile = true);
 
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      await prefs.setString('company_name', companyName.text.trim());
+      await prefs.setString(
+        'company_legal_name',
+        legalName.text.trim(),
+      );
+      await prefs.setString('company_business_type', businessType);
+      await prefs.setString(
+        'company_registration_number',
+        registrationNumber.text.trim(),
+      );
+      await prefs.setString('company_pan_vat', panVatNumber.text.trim());
+      await prefs.setString('company_phone', phoneNumber.text.trim());
+      await prefs.setString('company_email', emailAddress.text.trim());
+      await prefs.setString('company_website', website.text.trim());
+      await prefs.setString('company_address', address.text.trim());
+      await prefs.setString('company_city', city.text.trim());
+      await prefs.setString('company_district', district.text.trim());
       await prefs.setString(_countryKey, country);
 
       if (!mounted) return;
 
+      setState(() => _savingProfile = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Company country saved. Other profile fields will be connected to permanent storage separately.',
-          ),
+          content: Text('Business profile saved successfully.'),
           backgroundColor: Color(0xFF263B5B),
         ),
       );
     } catch (e) {
       if (!mounted) return;
 
+      setState(() => _savingProfile = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save country: $e')),
+        SnackBar(content: Text('Could not save business profile: $e')),
       );
     }
   }
@@ -599,14 +628,11 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               _logoCard(),
-
               _sectionTitle(
                 'Basic Information',
                 'General details about your business',
               ),
-
               _field(
                 label: 'Company Name',
                 hint: 'Enter your company name',
@@ -614,40 +640,33 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: Icons.business_outlined,
                 required: true,
               ),
-
               _field(
                 label: 'Legal / Registered Name',
                 hint: 'Official registered business name',
                 controller: legalName,
                 icon: Icons.description_outlined,
               ),
-
               _businessTypeDropdown(),
-
               _sectionTitle(
                 'Registration & Tax Details',
                 'Official business registration information',
               ),
-
               _field(
                 label: 'Registration Number',
                 hint: 'Enter registration number',
                 controller: registrationNumber,
                 icon: Icons.badge_outlined,
               ),
-
               _field(
                 label: 'PAN / VAT Number',
                 hint: 'Enter PAN or VAT number',
                 controller: panVatNumber,
                 icon: Icons.receipt_long_outlined,
               ),
-
               _sectionTitle(
                 'Contact Information',
                 'How customers and partners can reach you',
               ),
-
               _field(
                 label: 'Phone Number',
                 hint: 'Enter business phone number',
@@ -656,7 +675,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 keyboardType: TextInputType.phone,
                 required: true,
               ),
-
               _field(
                 label: 'Email Address',
                 hint: 'company@example.com',
@@ -664,7 +682,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
-
               _field(
                 label: 'Website',
                 hint: 'www.example.com',
@@ -672,12 +689,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: Icons.language_outlined,
                 keyboardType: TextInputType.url,
               ),
-
               _sectionTitle(
                 'Business Address',
                 'Registered or primary business location',
               ),
-
               _field(
                 label: 'Street Address',
                 hint: 'House number, street or area',
@@ -685,31 +700,40 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 icon: Icons.location_on_outlined,
                 maxLines: 2,
               ),
-
               _field(
                 label: 'City / Municipality',
                 hint: 'Enter city or municipality',
                 controller: city,
                 icon: Icons.location_city_outlined,
               ),
-
               _field(
                 label: 'District',
                 hint: 'Enter district',
                 controller: district,
                 icon: Icons.map_outlined,
               ),
-
               _countrySelector(),
-
               SizedBox(
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: _saveProfile,
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text(
-                    'Save Business Profile',
-                    style: TextStyle(
+                  onPressed: _loading || _savingProfile
+                      ? null
+                      : _saveProfile,
+                  icon: _savingProfile
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(
+                    _savingProfile
+                        ? 'Saving...'
+                        : 'Save Business Profile',
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -723,12 +747,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 14),
-
               const Center(
                 child: Text(
-                  'Business information can be edited later.',
+                  'Business information is saved on this device.',
                   style: TextStyle(
                     color: muted,
                     fontSize: 10,
