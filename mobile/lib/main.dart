@@ -4,9 +4,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'inventory_data.dart';
+
 import 'app_settings.dart';
 import 'dashboard_screen.dart';
+import 'inventory_data.dart';
 import 'l10n/app_localizations.dart';
 
 void main() {
@@ -17,7 +18,9 @@ void main() {
   );
 }
 
+// ============================================================
 // MAIN APPLICATION
+// ============================================================
 
 class UniversalInventoryApp extends ConsumerWidget {
   const UniversalInventoryApp({super.key});
@@ -25,8 +28,11 @@ class UniversalInventoryApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
+    final inventoryInitialization =
+        ref.watch(inventoryInitializationProvider);
 
-    if (!settings.isLoaded) {
+    // Wait until settings and saved inventory data are loaded.
+    if (!settings.isLoaded || inventoryInitialization.isLoading) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
@@ -34,6 +40,59 @@ class UniversalInventoryApp extends ConsumerWidget {
           body: Center(
             child: CircularProgressIndicator(
               color: Color(0xFF5798FF),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Show an error if saved inventory data cannot be loaded.
+    if (inventoryInitialization.hasError) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: const Color(0xFF080B12),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.storage_rounded,
+                    size: 54,
+                    color: Color(0xFFFF7676),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Could not load saved inventory data.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Please close and restart the application. '
+                    'Your saved data has not been intentionally deleted.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF9AAAC0),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ref.invalidate(inventoryInitializationProvider);
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('TRY AGAIN'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -84,7 +143,9 @@ class UniversalInventoryApp extends ConsumerWidget {
   }
 }
 
+// ============================================================
 // SPLASH SCREEN
+// ============================================================
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -280,7 +341,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
+// ============================================================
 // LOGIN SCREEN
+// ============================================================
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -308,7 +371,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -346,7 +412,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 12),
 
                     // LOGO AND BRAND
-
                     Center(
                       child: Column(
                         children: [
@@ -409,7 +474,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 48),
 
                     // WELCOME
-
                     const Text(
                       'Welcome Back',
                       style: TextStyle(
@@ -430,7 +494,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 32),
 
                     // EMAIL FIELD
-
                     const Text(
                       'Email or Username',
                       style: TextStyle(
@@ -443,6 +506,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         hintText: 'Enter your email or username',
                         hintStyle: const TextStyle(
@@ -480,7 +544,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 22),
 
                     // PASSWORD FIELD
-
                     const Text(
                       'Password',
                       style: TextStyle(
@@ -493,6 +556,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       controller: passwordController,
                       obscureText: obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => signIn(),
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
                         hintStyle: const TextStyle(
@@ -543,7 +608,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 12),
 
                     // REMEMBER AND FORGOT PASSWORD
-
                     Row(
                       children: [
                         Checkbox(
@@ -583,27 +647,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
 
                     // SIGN IN BUTTON
-
                     SizedBox(
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (emailController.text.trim().isEmpty ||
-                              passwordController.text.isEmpty) {
-                            showMessage(
-                              'Please enter your email and password.',
-                            );
-                          } else {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const DashboardScreen(),
-                              ),
-                            );
-                          }
-                        },
+                        onPressed: signIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF347FE2),
                           foregroundColor: Colors.white,
@@ -625,7 +673,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 28),
 
                     // CREATE ACCOUNT
-
                     Center(
                       child: Wrap(
                         alignment: WrapAlignment.center,
@@ -678,9 +725,31 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  // LOGIN ACTION
+  //
+  // This is currently a prototype login screen.
+  // Actual account authentication will be connected later.
+
+  void signIn() {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.isEmpty) {
+      showMessage('Please enter your email and password.');
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const DashboardScreen(),
+      ),
+    );
+  }
 }
 
+// ============================================================
 // BACKGROUND GLOW
+// ============================================================
 
 class _GlowOrb extends StatelessWidget {
   const _GlowOrb({
@@ -700,7 +769,10 @@ class _GlowOrb extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
-            colors: [color, Colors.transparent],
+            colors: [
+              color,
+              Colors.transparent,
+            ],
           ),
         ),
       ),
