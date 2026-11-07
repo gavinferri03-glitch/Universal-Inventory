@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-mixin InventoryStock on InventoryData {
+extension InventoryStock on InventoryData {
   // ==========================================================
   // BRANCH STOCK LOOKUP
   // ==========================================================
