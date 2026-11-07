@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'inventory_data.dart';
+import 'list_tools.dart';
 
 class SalesScreen extends ConsumerStatefulWidget {
   const SalesScreen({super.key});
@@ -26,7 +27,35 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
   final taxController = TextEditingController(text: '0');
   final paidController = TextEditingController(text: '0');
 
+  // Sales history search, sorting and filtering.
+  final TextEditingController salesSearchController =
+      TextEditingController();
+
+  String salesSearch = '';
+  String salesSort = 'newest';
+  String salesFilter = 'all';
+
   String paymentMethod = 'Cash';
+
+  final Map<String, String> salesSortOptions = {
+    'newest': 'Newest first',
+    'oldest': 'Oldest first',
+    'total_high': 'Highest sale value',
+    'total_low': 'Lowest sale value',
+    'invoice_az': 'Invoice A–Z',
+    'invoice_za': 'Invoice Z–A',
+  };
+
+  final Map<String, String> salesFilterOptions = {
+    'all': 'All sales',
+    'cash': 'Cash',
+    'qr': 'QR',
+    'card': 'Card',
+    'bank': 'Bank Transfer',
+    'credit': 'Credit',
+    'due': 'Outstanding payments',
+    'paid': 'Fully paid',
+  };
 
   @override
   void dispose() {
@@ -35,6 +64,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     discountController.dispose();
     taxController.dispose();
     paidController.dispose();
+    salesSearchController.dispose();
     super.dispose();
   }
 
@@ -57,6 +87,92 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       ),
     );
   }
+
+  // ------------------------------------------------------------
+  // SALES HISTORY FILTERING AND SORTING
+  // ------------------------------------------------------------
+
+  List<SaleRecord> getSortedSales(
+    List<SaleRecord> sales,
+    InventoryData inventory,
+  ) {
+    final query = salesSearch.trim().toLowerCase();
+
+    final result = sales.where((sale) {
+      final branch = inventory.findBranch(sale.branchId);
+
+      final matchesSearch = query.isEmpty ||
+          sale.invoiceNumber.toLowerCase().contains(query) ||
+          sale.customerName.toLowerCase().contains(query) ||
+          sale.customerPhone.toLowerCase().contains(query) ||
+          sale.paymentMethod.toLowerCase().contains(query) ||
+          (branch?.name.toLowerCase().contains(query) ?? false);
+
+      bool matchesFilter = true;
+
+      switch (salesFilter) {
+        case 'cash':
+          matchesFilter =
+              sale.paymentMethod.toLowerCase() == 'cash';
+          break;
+        case 'qr':
+          matchesFilter =
+              sale.paymentMethod.toLowerCase() == 'qr';
+          break;
+        case 'card':
+          matchesFilter =
+              sale.paymentMethod.toLowerCase() == 'card';
+          break;
+        case 'bank':
+          matchesFilter =
+              sale.paymentMethod.toLowerCase() == 'bank transfer';
+          break;
+        case 'credit':
+          matchesFilter =
+              sale.paymentMethod.toLowerCase() == 'credit';
+          break;
+        case 'due':
+          matchesFilter = sale.balanceDue > 0;
+          break;
+        case 'paid':
+          matchesFilter = sale.balanceDue <= 0;
+          break;
+      }
+
+      return matchesSearch && matchesFilter;
+    }).toList();
+
+    switch (salesSort) {
+      case 'newest':
+        result.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'oldest':
+        result.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'total_high':
+        result.sort((a, b) => b.total.compareTo(a.total));
+        break;
+      case 'total_low':
+        result.sort((a, b) => a.total.compareTo(b.total));
+        break;
+      case 'invoice_az':
+        result.sort(
+          (a, b) => a.invoiceNumber.compareTo(b.invoiceNumber),
+        );
+        break;
+      case 'invoice_za':
+        result.sort(
+          (a, b) => b.invoiceNumber.compareTo(a.invoiceNumber),
+        );
+        break;
+    }
+
+    return result;
+  }
+
+  // ------------------------------------------------------------
+  // CREATE SALE
+  // ------------------------------------------------------------
 
   void addProductDialog(InventoryData inventory) {
     if (inventory.products.isEmpty) {
@@ -222,8 +338,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     final paidValue = double.tryParse(paidController.text) ?? -1;
 
     if (discountValue < 0 || taxValue < 0 || paidValue < 0) {
-      showMessage('Enter valid discount, tax and payment amounts.',
-          error: true);
+      showMessage(
+        'Enter valid discount, tax and payment amounts.',
+        error: true,
+      );
       return;
     }
 
@@ -250,10 +368,16 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
 
       showMessage('Sale completed. Invoice: ${sale.invoiceNumber}');
     } catch (e) {
-      showMessage(e.toString().replaceFirst('Exception: ', ''),
-          error: true);
+      showMessage(
+        e.toString().replaceFirst('Exception: ', ''),
+        error: true,
+      );
     }
   }
+
+  // ------------------------------------------------------------
+  // COMMON UI HELPERS
+  // ------------------------------------------------------------
 
   Widget sectionTitle(String title) {
     return Padding(
@@ -328,6 +452,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       ),
     );
   }
+
+  // ------------------------------------------------------------
+  // CART
+  // ------------------------------------------------------------
 
   Widget buildCart(InventoryData inventory) {
     if (cart.isEmpty) {
@@ -404,6 +532,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // SALES HISTORY CARD
+  // ------------------------------------------------------------
+
   Widget saleHistoryCard(SaleRecord sale, InventoryData inventory) {
     final branch = inventory.findBranch(sale.branchId);
 
@@ -452,6 +584,11 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
           ),
           const SizedBox(height: 4),
           Text(
+            'Phone: ${sale.customerPhone.isEmpty ? "Not provided" : sale.customerPhone}',
+            style: const TextStyle(color: muted, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
             'Payment: ${sale.paymentMethod}  •  ${sale.items.length} product line(s)',
             style: const TextStyle(color: muted, fontSize: 12),
           ),
@@ -484,6 +621,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // INVOICE DETAILS
+  // ------------------------------------------------------------
+
   void showSaleDetails(SaleRecord sale) {
     showDialog(
       context: context,
@@ -502,6 +643,16 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
               children: [
                 Text(
                   'Customer: ${sale.customerName.isEmpty ? "Walk-in customer" : sale.customerName}',
+                  style: const TextStyle(color: muted),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Phone: ${sale.customerPhone.isEmpty ? "Not provided" : sale.customerPhone}',
+                  style: const TextStyle(color: muted),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Payment: ${sale.paymentMethod}',
                   style: const TextStyle(color: muted),
                 ),
                 const SizedBox(height: 12),
@@ -531,6 +682,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                 totalRow('Total', sale.total, bold: true),
                 totalRow('Paid', sale.amountPaid),
                 totalRow('Balance due', sale.balanceDue),
+                totalRow('Change', sale.change),
               ],
             ),
           ),
@@ -545,15 +697,22 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // MAIN SCREEN
+  // ------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final inventory = ref.watch(inventoryProvider);
+
     final activeBranches =
         inventory.branches.where((branch) => branch.active).toList();
 
     if (selectedBranchId == null && activeBranches.isNotEmpty) {
       selectedBranchId = activeBranches.first.id;
     }
+
+    final visibleSales = getSortedSales(inventory.sales, inventory);
 
     return Scaffold(
       backgroundColor: background,
@@ -568,6 +727,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // SALES SUMMARY
             Row(
               children: [
                 Expanded(
@@ -600,7 +760,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.receipt_long, color: Colors.greenAccent),
+                        const Icon(
+                          Icons.receipt_long,
+                          color: Colors.greenAccent,
+                        ),
                         const SizedBox(height: 9),
                         const Text(
                           "Today's Orders",
@@ -625,6 +788,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
             const SizedBox(height: 25),
             sectionTitle('Create New Sale'),
 
+            // NEW SALE FORM
             panelCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -781,23 +945,44 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
               ),
             ),
 
+            // SALES HISTORY
             const SizedBox(height: 28),
             sectionTitle('Sales History'),
 
-            if (inventory.sales.isEmpty)
+            InventoryListToolbar(
+              searchController: salesSearchController,
+              searchHint: 'Search invoice, customer, phone or branch...',
+              onSearchChanged: (value) {
+                setState(() => salesSearch = value);
+              },
+              sortOptions: salesSortOptions,
+              selectedSort: salesSort,
+              onSortChanged: (value) {
+                setState(() => salesSort = value);
+              },
+              filterOptions: salesFilterOptions,
+              selectedFilter: salesFilter,
+              onFilterChanged: (value) {
+                setState(() => salesFilter = value);
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            if (visibleSales.isEmpty)
               panelCard(
                 child: const Center(
                   child: Padding(
                     padding: EdgeInsets.all(15),
                     child: Text(
-                      'No sales recorded yet.',
+                      'No matching sales found.',
                       style: TextStyle(color: muted),
                     ),
                   ),
                 ),
               )
             else
-              ...inventory.sales.map(
+              ...visibleSales.map(
                 (sale) => saleHistoryCard(sale, inventory),
               ),
 
