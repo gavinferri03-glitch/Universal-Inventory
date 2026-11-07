@@ -2,6 +2,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// ============================================================
+// PRODUCT
+// ============================================================
+
 class InventoryProduct {
   final String id;
   final String name;
@@ -44,6 +48,10 @@ class InventoryProduct {
   }
 }
 
+// ============================================================
+// STOCK MOVEMENT
+// ============================================================
+
 class StockMovement {
   final String productId;
   final String productName;
@@ -61,6 +69,10 @@ class StockMovement {
     this.branchId = '1',
   });
 }
+
+// ============================================================
+// BRANCH
+// ============================================================
 
 class InventoryBranch {
   final String id;
@@ -86,6 +98,9 @@ class InventoryBranch {
   });
 }
 
+// ============================================================
+// SALES MODELS
+// ============================================================
 
 class SalesCartItem {
   final String productId;
@@ -117,6 +132,8 @@ class SaleLineItem {
   });
 
   double get total => quantity * unitPrice;
+
+  double get profit => (unitPrice - costPrice) * quantity;
 }
 
 class SaleRecord {
@@ -148,12 +165,25 @@ class SaleRecord {
     required this.date,
   });
 
-  double get balanceDue => (total - amountPaid).clamp(0, double.infinity);
+  double get balanceDue =>
+      (total - amountPaid).clamp(0, double.infinity).toDouble();
 
-  double get change => (amountPaid - total).clamp(0, double.infinity);
+  double get change =>
+      (amountPaid - total).clamp(0, double.infinity).toDouble();
+
+  double get profit =>
+      items.fold(0, (sum, item) => sum + item.profit);
 }
 
+// ============================================================
+// INVENTORY DATA
+// ============================================================
+
 class InventoryData extends ChangeNotifier {
+  // ----------------------------------------------------------
+  // SAMPLE PRODUCTS
+  // ----------------------------------------------------------
+
   final List<InventoryProduct> _products = [
     InventoryProduct(
       id: '1',
@@ -201,7 +231,15 @@ class InventoryData extends ChangeNotifier {
     ),
   ];
 
+  // ----------------------------------------------------------
+  // STOCK MOVEMENTS
+  // ----------------------------------------------------------
+
   final List<StockMovement> _movements = [];
+
+  // ----------------------------------------------------------
+  // BRANCHES
+  // ----------------------------------------------------------
 
   final List<InventoryBranch> _branches = [
     InventoryBranch(
@@ -239,6 +277,16 @@ class InventoryData extends ChangeNotifier {
     ),
   ];
 
+  // ----------------------------------------------------------
+  // SALES RECORDS
+  // ----------------------------------------------------------
+
+  final List<SaleRecord> _sales = [];
+
+  // ----------------------------------------------------------
+  // PUBLIC DATA
+  // ----------------------------------------------------------
+
   List<InventoryProduct> get products =>
       List.unmodifiable(_products);
 
@@ -248,15 +296,49 @@ class InventoryData extends ChangeNotifier {
   List<InventoryBranch> get branches =>
       List.unmodifiable(_branches);
 
+  List<SaleRecord> get sales =>
+      List.unmodifiable(_sales);
+
   int get totalStock =>
       _products.fold(0, (total, product) => total + product.quantity);
 
   int get lowStockCount =>
-      _products.where((product) =>
-          product.quantity <= product.minimumStock).length;
+      _products.where(
+        (product) => product.quantity <= product.minimumStock,
+      ).length;
 
   int get activeBranchCount =>
       _branches.where((branch) => branch.active).length;
+
+  double get totalSales =>
+      _sales.fold(0, (total, sale) => total + sale.total);
+
+  double get totalOutstanding =>
+      _sales.fold(0, (total, sale) => total + sale.balanceDue);
+
+  double get totalSalesToday {
+    final now = DateTime.now();
+
+    return _sales
+        .where((sale) =>
+            sale.date.year == now.year &&
+            sale.date.month == now.month &&
+            sale.date.day == now.day)
+        .fold(0, (total, sale) => total + sale.total);
+  }
+
+  int get salesCountToday {
+    final now = DateTime.now();
+
+    return _sales.where((sale) =>
+        sale.date.year == now.year &&
+        sale.date.month == now.month &&
+        sale.date.day == now.day).length;
+  }
+
+  // ----------------------------------------------------------
+  // FINDERS
+  // ----------------------------------------------------------
 
   InventoryProduct? findProduct(String productId) {
     for (final product in _products) {
@@ -272,11 +354,23 @@ class InventoryData extends ChangeNotifier {
     return null;
   }
 
+  SaleRecord? findSale(String invoiceNumber) {
+    for (final sale in _sales) {
+      if (sale.invoiceNumber == invoiceNumber) return sale;
+    }
+    return null;
+  }
+
   int getBranchQuantity(String productId, String branchId) {
     final product = findProduct(productId);
     if (product == null) return 0;
+
     return product.branchQuantities[branchId] ?? 0;
   }
+
+  // ==========================================================
+  // PRODUCT MANAGEMENT
+  // ==========================================================
 
   void addProduct({
     required String name,
@@ -292,6 +386,14 @@ class InventoryData extends ChangeNotifier {
     String supplier = '',
     String initialBranchId = '1',
   }) {
+    if (name.trim().isEmpty || sku.trim().isEmpty) {
+      throw Exception('Product name and SKU are required.');
+    }
+
+    if (sellingPrice < 0 || costPrice < 0 || openingQuantity < 0) {
+      throw Exception('Prices and quantity cannot be negative.');
+    }
+
     final duplicate = _products.any(
       (product) => product.sku.toLowerCase() == sku.toLowerCase(),
     );
@@ -306,8 +408,8 @@ class InventoryData extends ChangeNotifier {
 
     final product = InventoryProduct(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: name,
-      sku: sku,
+      name: name.trim(),
+      sku: sku.trim(),
       category: category,
       barcode: barcode,
       description: description,
@@ -317,9 +419,7 @@ class InventoryData extends ChangeNotifier {
       minimumStock: minimumStock,
       supplier: supplier,
       quantity: openingQuantity,
-      branchQuantities: {
-        initialBranchId: openingQuantity,
-      },
+      branchQuantities: {initialBranchId: openingQuantity},
     );
 
     _products.add(product);
@@ -341,7 +441,10 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Adds stock to a specific branch.
+  // ==========================================================
+  // STOCK ALLOCATION
+  // ==========================================================
+
   void allocateStockToBranch({
     required String productId,
     required String branchId,
@@ -353,13 +456,8 @@ class InventoryData extends ChangeNotifier {
 
     final product = findProduct(productId);
 
-    if (product == null) {
-      throw Exception('Product not found.');
-    }
-
-    if (findBranch(branchId) == null) {
-      throw Exception('Branch not found.');
-    }
+    if (product == null) throw Exception('Product not found.');
+    if (findBranch(branchId) == null) throw Exception('Branch not found.');
 
     product.branchQuantities[branchId] =
         (product.branchQuantities[branchId] ?? 0) + quantity;
@@ -381,7 +479,10 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Transfers stock between two branches without changing total stock.
+  // ==========================================================
+  // STOCK TRANSFER
+  // ==========================================================
+
   void transferStock({
     required String productId,
     required String fromBranchId,
@@ -398,9 +499,7 @@ class InventoryData extends ChangeNotifier {
 
     final product = findProduct(productId);
 
-    if (product == null) {
-      throw Exception('Product not found.');
-    }
+    if (product == null) throw Exception('Product not found.');
 
     if (findBranch(fromBranchId) == null ||
         findBranch(toBranchId) == null) {
@@ -442,6 +541,10 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ==========================================================
+  // STOCK IN / STOCK OUT
+  // ==========================================================
+
   void recordStockMovement({
     required String productId,
     required String type,
@@ -454,20 +557,14 @@ class InventoryData extends ChangeNotifier {
 
     final product = findProduct(productId);
 
-    if (product == null) {
-      throw Exception('Product not found.');
-    }
-
-    if (findBranch(branchId) == null) {
-      throw Exception('Branch not found.');
-    }
+    if (product == null) throw Exception('Product not found.');
+    if (findBranch(branchId) == null) throw Exception('Branch not found.');
 
     if (type != 'Stock In' && type != 'Stock Out') {
       throw Exception('Invalid stock movement type.');
     }
 
-    final branchStock =
-        product.branchQuantities[branchId] ?? 0;
+    final branchStock = product.branchQuantities[branchId] ?? 0;
 
     if (type == 'Stock Out' && branchStock < quantity) {
       throw Exception('Not enough stock available at this branch.');
@@ -495,6 +592,141 @@ class InventoryData extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  // ==========================================================
+  // SALES PROCESSING
+  // ==========================================================
+
+  SaleRecord createSale({
+    required String branchId,
+    required List<SalesCartItem> items,
+    String customerName = '',
+    String customerPhone = '',
+    String paymentMethod = 'Cash',
+    double discount = 0,
+    double tax = 0,
+    double amountPaid = 0,
+  }) {
+    final branch = findBranch(branchId);
+
+    if (branch == null || !branch.active) {
+      throw Exception('Please select an active branch.');
+    }
+
+    if (items.isEmpty) {
+      throw Exception('Add at least one product to the sale.');
+    }
+
+    if (discount < 0 || tax < 0 || amountPaid < 0) {
+      throw Exception('Discount, tax and payment cannot be negative.');
+    }
+
+    // Validate and combine quantities for repeated products.
+    final requiredQuantities = <String, int>{};
+
+    for (final item in items) {
+      if (item.quantity <= 0 || item.unitPrice < 0) {
+        throw Exception('Invalid product quantity or price.');
+      }
+
+      requiredQuantities[item.productId] =
+          (requiredQuantities[item.productId] ?? 0) + item.quantity;
+    }
+
+    // Check all products and stock before changing anything.
+    for (final entry in requiredQuantities.entries) {
+      final product = findProduct(entry.key);
+
+      if (product == null) {
+        throw Exception('A product in this sale was not found.');
+      }
+
+      final available = product.branchQuantities[branchId] ?? 0;
+
+      if (available < entry.value) {
+        throw Exception(
+          'Not enough ${product.name} stock at ${branch.name}. '
+          'Available: $available',
+        );
+      }
+    }
+
+    final saleItems = <SaleLineItem>[];
+
+    for (final item in items) {
+      final product = findProduct(item.productId)!;
+
+      saleItems.add(
+        SaleLineItem(
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          costPrice: product.costPrice,
+        ),
+      );
+    }
+
+    final subtotal =
+        saleItems.fold(0.0, (sum, item) => sum + item.total);
+
+    if (discount > subtotal) {
+      throw Exception('Discount cannot exceed the subtotal.');
+    }
+
+    final total = subtotal - discount + tax;
+
+    final sale = SaleRecord(
+      invoiceNumber:
+          'INV-${DateTime.now().microsecondsSinceEpoch}',
+      branchId: branchId,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      paymentMethod: paymentMethod,
+      items: List.unmodifiable(saleItems),
+      subtotal: subtotal,
+      discount: discount,
+      tax: tax,
+      total: total,
+      amountPaid: amountPaid,
+      date: DateTime.now(),
+    );
+
+    // Deduct stock once per product, even if it appears
+    // more than once in the cart.
+    for (final entry in requiredQuantities.entries) {
+      final product = findProduct(entry.key)!;
+      final quantity = entry.value;
+
+      product.branchQuantities[branchId] =
+          (product.branchQuantities[branchId] ?? 0) - quantity;
+
+      product.quantity -= quantity;
+
+      _movements.insert(
+        0,
+        StockMovement(
+          productId: product.id,
+          productName: product.name,
+          type: 'Stock Out',
+          quantity: quantity,
+          date: sale.date,
+          branchId: branchId,
+        ),
+      );
+    }
+
+    _sales.insert(0, sale);
+
+    notifyListeners();
+
+    return sale;
+  }
+
+  // ==========================================================
+  // BRANCH MANAGEMENT
+  // ==========================================================
 
   void addBranch({
     required String name,
@@ -542,9 +774,7 @@ class InventoryData extends ChangeNotifier {
   }) {
     final index = _branches.indexWhere((branch) => branch.id == id);
 
-    if (index == -1) {
-      throw Exception('Branch not found.');
-    }
+    if (index == -1) throw Exception('Branch not found.');
 
     final duplicate = _branches.any(
       (branch) =>
@@ -583,6 +813,10 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+// ============================================================
+// SHARED INVENTORY PROVIDER
+// ============================================================
 
 final inventoryProvider =
     ChangeNotifierProvider<InventoryData>((ref) {
