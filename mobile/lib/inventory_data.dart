@@ -11,7 +11,9 @@ import 'notifications_data.dart';
 import 'code_generator.dart';
 
 part 'inventory_products.dart';
-
+part 'inventory_categories.dart';
+part 'inventory_branches.dart';
+part 'inventory_customers.dart';
 
 // ============================================================
 // INVENTORY DATA
