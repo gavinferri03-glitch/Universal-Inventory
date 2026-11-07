@@ -7,17 +7,41 @@ class InventoryProduct {
   final String name;
   final String sku;
   final String category;
+  final String barcode;
+  final String description;
+  final double costPrice;
   final double sellingPrice;
+  final String unit;
+  final int minimumStock;
+  final String supplier;
+
   int quantity;
+
+  // Branch ID -> quantity held at that branch.
+  final Map<String, int> branchQuantities;
 
   InventoryProduct({
     required this.id,
     required this.name,
     required this.sku,
     required this.category,
+    this.barcode = '',
+    this.description = '',
+    this.costPrice = 0,
     required this.sellingPrice,
+    this.unit = 'Pieces',
+    this.minimumStock = 5,
+    this.supplier = '',
     required this.quantity,
-  });
+    Map<String, int>? branchQuantities,
+  }) : branchQuantities = branchQuantities ?? {};
+
+  double get profitPerUnit => sellingPrice - costPrice;
+
+  double get profitMargin {
+    if (sellingPrice <= 0) return 0;
+    return (profitPerUnit / sellingPrice) * 100;
+  }
 }
 
 class StockMovement {
@@ -26,6 +50,7 @@ class StockMovement {
   final String type;
   final int quantity;
   final DateTime date;
+  final String branchId;
 
   StockMovement({
     required this.productId,
@@ -33,6 +58,7 @@ class StockMovement {
     required this.type,
     required this.quantity,
     required this.date,
+    this.branchId = '1',
   });
 }
 
@@ -68,7 +94,10 @@ class InventoryData extends ChangeNotifier {
       sku: 'ELE-001',
       category: 'Electronics',
       sellingPrice: 850,
+      costPrice: 600,
       quantity: 20,
+      minimumStock: 5,
+      branchQuantities: {'1': 20},
     ),
     InventoryProduct(
       id: '2',
@@ -76,7 +105,10 @@ class InventoryData extends ChangeNotifier {
       sku: 'ACC-002',
       category: 'Accessories',
       sellingPrice: 1200,
+      costPrice: 900,
       quantity: 8,
+      minimumStock: 5,
+      branchQuantities: {'1': 8},
     ),
     InventoryProduct(
       id: '3',
@@ -84,7 +116,10 @@ class InventoryData extends ChangeNotifier {
       sku: 'ACC-003',
       category: 'Accessories',
       sellingPrice: 450,
+      costPrice: 250,
       quantity: 5,
+      minimumStock: 5,
+      branchQuantities: {'1': 5},
     ),
     InventoryProduct(
       id: '4',
@@ -92,7 +127,10 @@ class InventoryData extends ChangeNotifier {
       sku: 'ELE-004',
       category: 'Electronics',
       sellingPrice: 2500,
+      costPrice: 1800,
       quantity: 35,
+      minimumStock: 5,
+      branchQuantities: {'1': 35},
     ),
   ];
 
@@ -147,7 +185,8 @@ class InventoryData extends ChangeNotifier {
       _products.fold(0, (total, product) => total + product.quantity);
 
   int get lowStockCount =>
-      _products.where((product) => product.quantity <= 5).length;
+      _products.where((product) =>
+          product.quantity <= product.minimumStock).length;
 
   int get activeBranchCount =>
       _branches.where((branch) => branch.active).length;
@@ -159,12 +198,32 @@ class InventoryData extends ChangeNotifier {
     return null;
   }
 
+  InventoryBranch? findBranch(String branchId) {
+    for (final branch in _branches) {
+      if (branch.id == branchId) return branch;
+    }
+    return null;
+  }
+
+  int getBranchQuantity(String productId, String branchId) {
+    final product = findProduct(productId);
+    if (product == null) return 0;
+    return product.branchQuantities[branchId] ?? 0;
+  }
+
   void addProduct({
     required String name,
     required String sku,
     required String category,
     required double sellingPrice,
     required int openingQuantity,
+    double costPrice = 0,
+    String barcode = '',
+    String description = '',
+    String unit = 'Pieces',
+    int minimumStock = 5,
+    String supplier = '',
+    String initialBranchId = '1',
   }) {
     final duplicate = _products.any(
       (product) => product.sku.toLowerCase() == sku.toLowerCase(),
@@ -174,13 +233,26 @@ class InventoryData extends ChangeNotifier {
       throw Exception('A product with this SKU already exists.');
     }
 
+    if (findBranch(initialBranchId) == null) {
+      throw Exception('Selected branch was not found.');
+    }
+
     final product = InventoryProduct(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: name,
       sku: sku,
       category: category,
+      barcode: barcode,
+      description: description,
+      costPrice: costPrice,
       sellingPrice: sellingPrice,
+      unit: unit,
+      minimumStock: minimumStock,
+      supplier: supplier,
       quantity: openingQuantity,
+      branchQuantities: {
+        initialBranchId: openingQuantity,
+      },
     );
 
     _products.add(product);
@@ -194,6 +266,7 @@ class InventoryData extends ChangeNotifier {
           type: 'Stock In',
           quantity: openingQuantity,
           date: DateTime.now(),
+          branchId: initialBranchId,
         ),
       );
     }
@@ -201,9 +274,10 @@ class InventoryData extends ChangeNotifier {
     notifyListeners();
   }
 
-  void recordStockMovement({
+  // Adds stock to a specific branch.
+  void allocateStockToBranch({
     required String productId,
-    required String type,
+    required String branchId,
     required int quantity,
   }) {
     if (quantity <= 0) {
@@ -216,17 +290,127 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Product not found.');
     }
 
-    if (type == 'Stock Out' && product.quantity < quantity) {
-      throw Exception('Not enough stock available.');
+    if (findBranch(branchId) == null) {
+      throw Exception('Branch not found.');
+    }
+
+    product.branchQuantities[branchId] =
+        (product.branchQuantities[branchId] ?? 0) + quantity;
+
+    product.quantity += quantity;
+
+    _movements.insert(
+      0,
+      StockMovement(
+        productId: product.id,
+        productName: product.name,
+        type: 'Stock In',
+        quantity: quantity,
+        date: DateTime.now(),
+        branchId: branchId,
+      ),
+    );
+
+    notifyListeners();
+  }
+
+  // Transfers stock between two branches without changing total stock.
+  void transferStock({
+    required String productId,
+    required String fromBranchId,
+    required String toBranchId,
+    required int quantity,
+  }) {
+    if (quantity <= 0) {
+      throw Exception('Quantity must be greater than zero.');
+    }
+
+    if (fromBranchId == toBranchId) {
+      throw Exception('Choose two different branches.');
+    }
+
+    final product = findProduct(productId);
+
+    if (product == null) {
+      throw Exception('Product not found.');
+    }
+
+    if (findBranch(fromBranchId) == null ||
+        findBranch(toBranchId) == null) {
+      throw Exception('Branch not found.');
+    }
+
+    final sourceQuantity =
+        product.branchQuantities[fromBranchId] ?? 0;
+
+    if (sourceQuantity < quantity) {
+      throw Exception('Not enough stock at the source branch.');
+    }
+
+    product.branchQuantities[fromBranchId] =
+        sourceQuantity - quantity;
+
+    product.branchQuantities[toBranchId] =
+        (product.branchQuantities[toBranchId] ?? 0) + quantity;
+
+    _movements.insertAll(0, [
+      StockMovement(
+        productId: product.id,
+        productName: product.name,
+        type: 'Transfer Out',
+        quantity: quantity,
+        date: DateTime.now(),
+        branchId: fromBranchId,
+      ),
+      StockMovement(
+        productId: product.id,
+        productName: product.name,
+        type: 'Transfer In',
+        quantity: quantity,
+        date: DateTime.now(),
+        branchId: toBranchId,
+      ),
+    ]);
+
+    notifyListeners();
+  }
+
+  void recordStockMovement({
+    required String productId,
+    required String type,
+    required int quantity,
+    String branchId = '1',
+  }) {
+    if (quantity <= 0) {
+      throw Exception('Quantity must be greater than zero.');
+    }
+
+    final product = findProduct(productId);
+
+    if (product == null) {
+      throw Exception('Product not found.');
+    }
+
+    if (findBranch(branchId) == null) {
+      throw Exception('Branch not found.');
     }
 
     if (type != 'Stock In' && type != 'Stock Out') {
       throw Exception('Invalid stock movement type.');
     }
 
+    final branchStock =
+        product.branchQuantities[branchId] ?? 0;
+
+    if (type == 'Stock Out' && branchStock < quantity) {
+      throw Exception('Not enough stock available at this branch.');
+    }
+
     if (type == 'Stock In') {
+      product.branchQuantities[branchId] = branchStock + quantity;
       product.quantity += quantity;
     } else {
+      product.branchQuantities[branchId] = branchStock - quantity;
       product.quantity -= quantity;
     }
 
@@ -238,6 +422,7 @@ class InventoryData extends ChangeNotifier {
         type: type,
         quantity: quantity,
         date: DateTime.now(),
+        branchId: branchId,
       ),
     );
 
