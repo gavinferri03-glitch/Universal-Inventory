@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryHelpers on InventoryData {
+mixin InventoryHelpers on InventoryData {
   // ==========================================================
   // GENERAL LOOKUPS
   // ==========================================================
