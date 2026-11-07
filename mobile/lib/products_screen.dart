@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'inventory_data.dart';
 import 'code_generator.dart';
+import 'list_tools.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
   @override
-  ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
+  ConsumerState<ProductsScreen> createState() =>
+      _ProductsScreenState();
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
@@ -21,6 +23,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       TextEditingController();
 
   String selectedCategory = 'All';
+  String selectedSort = 'name_az';
+  String selectedStockFilter = 'all';
 
   final List<String> units = [
     'Pieces',
@@ -53,18 +57,68 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   ) {
     final query = searchController.text.trim().toLowerCase();
 
-    return products.where((product) {
+    final result = products.where((product) {
+      final searchableText = [
+        product.name,
+        product.sku,
+        product.barcode,
+        product.supplier,
+        product.category,
+        product.description,
+      ].join(' ').toLowerCase();
+
       final matchesSearch =
-          product.name.toLowerCase().contains(query) ||
-          product.sku.toLowerCase().contains(query) ||
-          product.barcode.toLowerCase().contains(query) ||
-          product.supplier.toLowerCase().contains(query);
+          query.isEmpty || searchableText.contains(query);
 
       final matchesCategory = selectedCategory == 'All' ||
           product.category == selectedCategory;
 
-      return matchesSearch && matchesCategory;
+      final matchesStockFilter = switch (selectedStockFilter) {
+        'low_stock' =>
+          product.quantity > 0 &&
+          product.quantity <= product.minimumStock,
+        'out_of_stock' => product.quantity <= 0,
+        'in_stock' => product.quantity > 0,
+        _ => true,
+      };
+
+      return matchesSearch &&
+          matchesCategory &&
+          matchesStockFilter;
     }).toList();
+
+    result.sort((a, b) {
+      switch (selectedSort) {
+        case 'name_az':
+          return a.name.toLowerCase().compareTo(
+                b.name.toLowerCase(),
+              );
+        case 'name_za':
+          return b.name.toLowerCase().compareTo(
+                a.name.toLowerCase(),
+              );
+        case 'stock_high':
+          return b.quantity.compareTo(a.quantity);
+        case 'stock_low':
+          return a.quantity.compareTo(b.quantity);
+        case 'value_high':
+          return (b.quantity * b.costPrice).compareTo(
+            a.quantity * a.costPrice,
+          );
+        case 'value_low':
+          return (a.quantity * a.costPrice).compareTo(
+            b.quantity * b.costPrice,
+          );
+        case 'price_high':
+          return b.sellingPrice.compareTo(a.sellingPrice);
+        case 'price_low':
+          return a.sellingPrice.compareTo(b.sellingPrice);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
   }
 
   InputDecoration _decoration(String label) {
@@ -942,15 +996,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   Widget build(BuildContext context) {
     final inventory = ref.watch(inventoryProvider);
 
-    // Categories are now read directly from shared inventory data.
     final allCategories = inventory.categories;
 
     final categoryNames = allCategories
         .map((category) => category.name)
         .toList();
 
-    // Keep inactive categories visible as filters so existing
-    // products assigned to them can still be found.
     final filterCategories = ['All', ...categoryNames];
 
     if (!filterCategories.contains(selectedCategory)) {
@@ -981,26 +1032,36 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: searchController,
-                onChanged: (_) => setState(() {}),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText:
-                      'Search name, SKU, barcode or supplier...',
-                  hintStyle: TextStyle(color: muted),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: blue,
-                  ),
-                  filled: true,
-                  fillColor: panel,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+              child: InventoryListToolbar(
+                searchController: searchController,
+                searchHint:
+                    'Search name, code, barcode, category...',
+                onSearchChanged: (_) => setState(() {}),
+                sortOptions: const {
+                  'name_az': 'Name: A–Z',
+                  'name_za': 'Name: Z–A',
+                  'stock_high': 'Highest stock',
+                  'stock_low': 'Lowest stock',
+                  'value_high': 'Highest stock value',
+                  'value_low': 'Lowest stock value',
+                  'price_high': 'Highest selling price',
+                  'price_low': 'Lowest selling price',
+                },
+                selectedSort: selectedSort,
+                onSortChanged: (value) {
+                  setState(() => selectedSort = value);
+                },
+                filterOptions: const {
+                  'all': 'All stock',
+                  'low_stock': 'Low stock',
+                  'out_of_stock': 'Out of stock',
+                  'in_stock': 'In stock',
+                },
+                selectedFilter: selectedStockFilter,
+                onFilterChanged: (value) {
+                  setState(() => selectedStockFilter = value);
+                },
               ),
             ),
 
