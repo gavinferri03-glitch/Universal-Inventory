@@ -1790,3 +1790,7 @@ final inventoryProvider =
     ChangeNotifierProvider<InventoryData>((ref) {
   return InventoryData();
 });
+
+final inventoryInitializationProvider = FutureProvider<void>((ref) async {
+  await ref.read(inventoryProvider).initialize();
+});
