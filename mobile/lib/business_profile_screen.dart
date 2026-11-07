@@ -1,5 +1,11 @@
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:country_picker/country_picker.dart';
 
 class BusinessProfileScreen extends StatefulWidget {
   const BusinessProfileScreen({super.key});
@@ -9,15 +15,17 @@ class BusinessProfileScreen extends StatefulWidget {
       _BusinessProfileScreenState();
 }
 
-class _BusinessProfileScreenState
-    extends State<BusinessProfileScreen> {
+class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   static const Color background = Color(0xFF080B12);
   static const Color cardColor = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
-  static const Color green = Color(0xFF45C99A);
+
+  static const String _logoKey = 'company_logo_path';
+  static const String _countryKey = 'company_country';
 
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
 
   final companyName = TextEditingController();
   final legalName = TextEditingController();
@@ -31,6 +39,17 @@ class _BusinessProfileScreenState
   final district = TextEditingController();
 
   String businessType = 'Retail';
+  String country = 'Nepal';
+
+  String? _logoPath;
+  bool _loading = true;
+  bool _savingLogo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedDetails();
+  }
 
   @override
   void dispose() {
@@ -47,9 +66,162 @@ class _BusinessProfileScreenState
     super.dispose();
   }
 
+  Future<void> _loadSavedDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final savedLogo = prefs.getString(_logoKey);
+      final savedCountry = prefs.getString(_countryKey);
+
+      if (savedLogo != null && await File(savedLogo).exists()) {
+        _logoPath = savedLogo;
+      }
+
+      if (savedCountry != null && savedCountry.isNotEmpty) {
+        country = savedCountry;
+      }
+    } catch (e) {
+      debugPrint('Could not load company details: $e');
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickLogo() async {
+    if (_savingLogo) return;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (image == null || !mounted) return;
+
+      setState(() => _savingLogo = true);
+
+      final directory = await getApplicationDocumentsDirectory();
+
+      final dot = image.path.lastIndexOf('.');
+      final extension =
+          dot == -1 ? '.jpg' : image.path.substring(dot);
+
+      final newPath =
+          '${directory.path}/company_logo_${DateTime.now().millisecondsSinceEpoch}$extension';
+
+      final savedFile = await File(image.path).copy(newPath);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_logoKey, savedFile.path);
+
+      if (!mounted) return;
+
+      setState(() {
+        _logoPath = savedFile.path;
+        _savingLogo = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Company logo saved successfully.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _savingLogo = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select logo: $e')),
+      );
+    }
+  }
+
+  Future<void> _removeLogo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final oldPath = _logoPath;
+
+      await prefs.remove(_logoKey);
+
+      if (oldPath != null) {
+        final file = File(oldPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() => _logoPath = null);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Company logo removed.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove logo: $e')),
+      );
+    }
+  }
+
+  void _selectCountry() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: false,
+      onSelect: (Country selectedCountry) async {
+        setState(() => country = selectedCountry.name);
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_countryKey, selectedCountry.name);
+        } catch (e) {
+          debugPrint('Could not save country: $e');
+        }
+      },
+      countryListTheme: CountryListThemeData(
+        backgroundColor: cardColor,
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+        ),
+        searchTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+        ),
+        inputDecoration: InputDecoration(
+          hintText: 'Search country',
+          hintStyle: const TextStyle(color: muted),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: muted,
+          ),
+          filled: true,
+          fillColor: background,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(
+              color: Color(0xFF26364D),
+            ),
+          ),
+        ),
+        bottomSheetHeight: 550,
+      ),
+    );
+  }
+
   Widget _sectionTitle(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14, top: 12),
+      padding: const EdgeInsets.only(bottom: 14, top: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -140,12 +312,6 @@ class _BusinessProfileScreenState
               width: 1.4,
             ),
           ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: const BorderSide(
-              color: Colors.redAccent,
-            ),
-          ),
         ),
       ),
     );
@@ -176,15 +342,6 @@ class _BusinessProfileScreenState
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(13),
-            borderSide: const BorderSide(
-              color: Color(0xFF26364D),
-            ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: const BorderSide(
-              color: Color(0xFF26364D),
-            ),
           ),
         ),
         items: [
@@ -217,82 +374,200 @@ class _BusinessProfileScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF26364D)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            height: 65,
-            width: 65,
-            decoration: BoxDecoration(
-              color: const Color(0xFF263B5B),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.business,
-              color: blue,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Company Logo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
+          Row(
+            children: [
+              Container(
+                height: 76,
+                width: 76,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF263B5B),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                SizedBox(height: 5),
-                Text(
-                  'Add your business identity',
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Logo upload will be connected later.',
-                  ),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: blue,
-              side: const BorderSide(color: blue),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                clipBehavior: Clip.antiAlias,
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: blue,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : _logoPath != null
+                        ? Image.file(
+                            File(_logoPath!),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(
+                              Icons.business,
+                              color: blue,
+                              size: 36,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.business,
+                            color: blue,
+                            size: 36,
+                          ),
               ),
-            ),
-            child: const Text('Add'),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Company Logo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Choose your business logo from your gallery.',
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _loading || _savingLogo
+                      ? null
+                      : _pickLogo,
+                  icon: _savingLogo
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          _logoPath == null
+                              ? Icons.add_photo_alternate_outlined
+                              : Icons.edit_outlined,
+                        ),
+                  label: Text(
+                    _savingLogo
+                        ? 'Saving...'
+                        : _logoPath == null
+                            ? 'Choose Logo'
+                            : 'Change Logo',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: blue,
+                    side: const BorderSide(color: blue),
+                  ),
+                ),
+              ),
+              if (_logoPath != null)
+                IconButton(
+                  onPressed: _savingLogo ? null : _removeLogo,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                  tooltip: 'Remove logo',
+                ),
+            ],
+          ),
+          const Text(
+            'Your selected logo is saved on this device.',
+            style: TextStyle(color: muted, fontSize: 10),
           ),
         ],
       ),
     );
   }
 
-  void _saveProfile() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Business profile validated. Permanent saving will be connected later.',
+  Widget _countrySelector() {
+    return InkWell(
+      onTap: _selectCountry,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 15,
+          vertical: 17,
         ),
-        backgroundColor: Color(0xFF263B5B),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: const Color(0xFF26364D),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.public, color: blue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Country',
+                    style: TextStyle(
+                      color: muted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    country,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_drop_down,
+              color: muted,
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_countryKey, country);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Company country saved. Other profile fields will be connected to permanent storage separately.',
+          ),
+          backgroundColor: Color(0xFF263B5B),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save country: $e')),
+      );
+    }
   }
 
   @override
@@ -323,7 +598,6 @@ class _BusinessProfileScreenState
                   fontSize: 13,
                 ),
               ),
-
               const SizedBox(height: 20),
 
               _logoCard(),
@@ -426,54 +700,7 @@ class _BusinessProfileScreenState
                 icon: Icons.map_outlined,
               ),
 
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: const Color(0xFF26364D),
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.public,
-                      color: blue,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Country',
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 11,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Nepal',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.lock_outline,
-                      color: muted,
-                      size: 17,
-                    ),
-                  ],
-                ),
-              ),
+              _countrySelector(),
 
               SizedBox(
                 height: 52,
