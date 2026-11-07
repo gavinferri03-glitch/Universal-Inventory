@@ -1,7 +1,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'inventory_data.dart';
+import 'code_generator.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -64,8 +66,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }).toList();
   }
 
+  // ==========================================================
+  // ADD PRODUCT
+  // ==========================================================
+
   void addProduct() {
     final inventory = ref.read(inventoryProvider);
+
     final activeBranches =
         inventory.branches.where((branch) => branch.active).toList();
 
@@ -79,7 +86,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }
 
     final nameController = TextEditingController();
-    final skuController = TextEditingController();
     final barcodeController = TextEditingController();
     final descriptionController = TextEditingController();
     final costController = TextEditingController();
@@ -87,6 +93,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final quantityController = TextEditingController(text: '0');
     final minimumController = TextEditingController(text: '5');
     final supplierController = TextEditingController();
+
+    final generatedSku = CodeGenerator.next(
+      prefix: 'PR',
+      existingCodes: inventory.products.map((product) => product.sku),
+    );
 
     String category = 'Electronics';
     String unit = 'Pieces';
@@ -110,15 +121,44 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _sectionTitle('Basic Information'),
-                      _field(nameController, 'Product Name *'),
-                      _field(skuController, 'SKU / Product Code *'),
-                      _field(barcodeController, 'Barcode'),
+
+                      _field(
+                        nameController,
+                        'Product Name *',
+                      ),
+
+                      TextFormField(
+                        initialValue: generatedSku,
+                        readOnly: true,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: _decoration(
+                          'Automatically Generated Product Code',
+                        ).copyWith(
+                          suffixIcon: Icon(
+                            Icons.lock_outline,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        barcodeController,
+                        'Barcode',
+                      ),
+
                       _field(
                         descriptionController,
                         'Product Description',
                         maxLines: 3,
                       ),
+
                       const SizedBox(height: 8),
+
                       DropdownButtonFormField<String>(
                         value: category,
                         dropdownColor: panel,
@@ -126,10 +166,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         decoration: _decoration('Category'),
                         items: categories
                             .where((item) => item != 'All')
-                            .map((item) => DropdownMenuItem(
-                                  value: item,
-                                  child: Text(item),
-                                ))
+                            .map(
+                              (item) => DropdownMenuItem(
+                                value: item,
+                                child: Text(item),
+                              ),
+                            )
                             .toList(),
                         onChanged: (value) {
                           if (value != null) {
@@ -137,20 +179,31 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           }
                         },
                       ),
+
                       const SizedBox(height: 20),
+
                       _sectionTitle('Pricing Information'),
+
                       _field(
                         costController,
                         'Cost / Purchase Price *',
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                       ),
+
                       _field(
                         sellingController,
                         'Selling Price *',
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                       ),
+
                       const SizedBox(height: 20),
+
                       _sectionTitle('Stock Information'),
+
                       DropdownButtonFormField<String>(
                         value: unit,
                         dropdownColor: panel,
@@ -168,17 +221,21 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           }
                         },
                       ),
+
                       const SizedBox(height: 12),
+
                       _field(
                         quantityController,
                         'Opening Quantity *',
                         keyboardType: TextInputType.number,
                       ),
+
                       _field(
                         minimumController,
                         'Minimum Stock Alert Level *',
                         keyboardType: TextInputType.number,
                       ),
+
                       DropdownButtonFormField<String>(
                         value: selectedBranchId,
                         dropdownColor: panel,
@@ -198,10 +255,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           }
                         },
                       ),
+
                       const SizedBox(height: 20),
+
                       _sectionTitle('Supplier Information'),
-                      _field(supplierController, 'Supplier Name'),
+
+                      _field(
+                        supplierController,
+                        'Supplier Name',
+                      ),
+
                       const SizedBox(height: 8),
+
                       Text(
                         'The opening quantity will be assigned to the selected branch. You can allocate more stock to other branches later.',
                         style: TextStyle(
@@ -216,7 +281,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: Text('Cancel', style: TextStyle(color: muted)),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: muted),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -225,22 +293,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ),
                   onPressed: () {
                     final name = nameController.text.trim();
-                    final sku = skuController.text.trim();
+
                     final cost = double.tryParse(
                       costController.text.trim(),
                     );
+
                     final selling = double.tryParse(
                       sellingController.text.trim(),
                     );
+
                     final quantity = int.tryParse(
                       quantityController.text.trim(),
                     );
+
                     final minimum = int.tryParse(
                       minimumController.text.trim(),
                     );
 
                     if (name.isEmpty ||
-                        sku.isEmpty ||
                         cost == null ||
                         selling == null ||
                         quantity == null ||
@@ -262,7 +332,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     try {
                       ref.read(inventoryProvider).addProduct(
                             name: name,
-                            sku: sku,
+                            sku: generatedSku,
                             category: category,
                             barcode: barcodeController.text.trim(),
                             description:
@@ -279,8 +349,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       Navigator.pop(dialogContext);
 
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Product added successfully.'),
+                        SnackBar(
+                          content: Text(
+                            'Product added successfully. Code: $generatedSku',
+                          ),
                         ),
                       );
                     } catch (error) {
@@ -305,7 +377,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       },
     ).then((_) {
       nameController.dispose();
-      skuController.dispose();
       barcodeController.dispose();
       descriptionController.dispose();
       costController.dispose();
@@ -315,6 +386,286 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       supplierController.dispose();
     });
   }
+
+  // ==========================================================
+  // EDIT PRODUCT
+  // ==========================================================
+
+  void editProduct(InventoryProduct product) {
+    final nameController = TextEditingController(text: product.name);
+    final barcodeController = TextEditingController(text: product.barcode);
+    final descriptionController =
+        TextEditingController(text: product.description);
+    final costController = TextEditingController(
+      text: product.costPrice.toString(),
+    );
+    final sellingController = TextEditingController(
+      text: product.sellingPrice.toString(),
+    );
+    final minimumController = TextEditingController(
+      text: product.minimumStock.toString(),
+    );
+    final supplierController = TextEditingController(
+      text: product.supplier,
+    );
+
+    String category = categories.contains(product.category) &&
+            product.category != 'All'
+        ? product.category
+        : 'Other';
+
+    String unit = units.contains(product.unit)
+        ? product.unit
+        : units.first;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Edit Product',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _sectionTitle('Product Information'),
+
+                      _field(
+                        nameController,
+                        'Product Name *',
+                      ),
+
+                      TextFormField(
+                        initialValue: product.sku,
+                        readOnly: true,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: _decoration('Product Code').copyWith(
+                          suffixIcon: Icon(
+                            Icons.lock_outline,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        barcodeController,
+                        'Barcode',
+                      ),
+
+                      _field(
+                        descriptionController,
+                        'Product Description',
+                        maxLines: 3,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      DropdownButtonFormField<String>(
+                        value: category,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Category'),
+                        items: categories
+                            .where((item) => item != 'All')
+                            .map(
+                              (item) => DropdownMenuItem(
+                                value: item,
+                                child: Text(item),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => category = value);
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Pricing Information'),
+
+                      _field(
+                        costController,
+                        'Cost / Purchase Price *',
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      _field(
+                        sellingController,
+                        'Selling Price *',
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Product Settings'),
+
+                      DropdownButtonFormField<String>(
+                        value: unit,
+                        dropdownColor: panel,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Unit of Measurement'),
+                        items: units.map((item) {
+                          return DropdownMenuItem(
+                            value: item,
+                            child: Text(item),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => unit = value);
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _field(
+                        minimumController,
+                        'Minimum Stock Alert Level *',
+                        keyboardType: TextInputType.number,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _sectionTitle('Supplier Information'),
+
+                      _field(
+                        supplierController,
+                        'Supplier Name',
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text(
+                        'Product code and current stock quantities cannot be changed from this form. Use Stock Management to adjust stock.',
+                        style: TextStyle(
+                          color: muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final name = nameController.text.trim();
+
+                    final cost = double.tryParse(
+                      costController.text.trim(),
+                    );
+
+                    final selling = double.tryParse(
+                      sellingController.text.trim(),
+                    );
+
+                    final minimum = int.tryParse(
+                      minimumController.text.trim(),
+                    );
+
+                    if (name.isEmpty ||
+                        cost == null ||
+                        selling == null ||
+                        minimum == null ||
+                        cost < 0 ||
+                        selling < 0 ||
+                        minimum < 0) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please enter valid product details.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      ref.read(inventoryProvider).updateProduct(
+                            productId: product.id,
+                            name: name,
+                            category: category,
+                            costPrice: cost,
+                            sellingPrice: selling,
+                            barcode: barcodeController.text.trim(),
+                            description:
+                                descriptionController.text.trim(),
+                            unit: unit,
+                            minimumStock: minimum,
+                            supplier: supplierController.text.trim(),
+                          );
+
+                      Navigator.pop(dialogContext);
+
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Product updated successfully.'),
+                        ),
+                      );
+                    } catch (error) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst(
+                                  'Exception: ',
+                                  '',
+                                ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      nameController.dispose();
+      barcodeController.dispose();
+      descriptionController.dispose();
+      costController.dispose();
+      sellingController.dispose();
+      minimumController.dispose();
+      supplierController.dispose();
+    });
+  }
+
+  // ==========================================================
+  // UI HELPERS
+  // ==========================================================
 
   InputDecoration _decoration(String label) {
     return InputDecoration(
@@ -363,11 +714,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
+  // ==========================================================
+  // PRODUCT DETAILS
+  // ==========================================================
+
   void showProductDetails(InventoryProduct product) {
     final inventory = ref.read(inventoryProvider);
     final branches = inventory.branches;
 
-    showModalBottomSheet(
+    showModalBottomSheet<bool>(
       context: context,
       backgroundColor: panel,
       isScrollControlled: true,
@@ -386,6 +741,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               controller: scrollController,
               padding: const EdgeInsets.all(22),
               children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: muted.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
                 Text(
                   product.name,
                   style: const TextStyle(
@@ -394,41 +762,71 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 6),
+
                 Text(
                   '${product.sku} • ${product.category}',
                   style: TextStyle(color: muted),
                 ),
+
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext, true);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit Product'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 22),
+
                 _detailRow('Barcode', product.barcode),
                 _detailRow('Description', product.description),
                 _detailRow('Supplier', product.supplier),
                 _detailRow('Unit', product.unit),
+
                 _detailRow(
                   'Cost Price',
                   'Rs. ${product.costPrice.toStringAsFixed(2)}',
                 ),
+
                 _detailRow(
                   'Selling Price',
                   'Rs. ${product.sellingPrice.toStringAsFixed(2)}',
                 ),
+
                 _detailRow(
                   'Profit per Unit',
                   'Rs. ${product.profitPerUnit.toStringAsFixed(2)}',
                 ),
+
                 _detailRow(
                   'Profit Margin',
                   '${product.profitMargin.toStringAsFixed(1)}%',
                 ),
+
                 _detailRow(
                   'Minimum Stock',
                   '${product.minimumStock} ${product.unit}',
                 ),
+
                 _detailRow(
                   'Total Stock',
                   '${product.quantity} ${product.unit}',
                 ),
+
                 const SizedBox(height: 20),
+
                 Text(
                   'Branch-wise Stock',
                   style: TextStyle(
@@ -437,7 +835,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 10),
+
                 ...branches.map((branch) {
                   final quantity =
                       product.branchQuantities[branch.id] ?? 0;
@@ -476,7 +876,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           },
         );
       },
-    );
+    ).then((shouldEdit) {
+      if (shouldEdit == true && mounted) {
+        editProduct(product);
+      }
+    });
   }
 
   Widget _detailRow(String title, String value) {
@@ -487,7 +891,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         children: [
           SizedBox(
             width: 125,
-            child: Text(title, style: TextStyle(color: muted)),
+            child: Text(
+              title,
+              style: TextStyle(color: muted),
+            ),
           ),
           Expanded(
             child: Text(
@@ -499,6 +906,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
   }
+
+  // ==========================================================
+  // MAIN SCREEN
+  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
@@ -544,13 +955,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ),
               ),
             ),
+
             SizedBox(
               height: 45,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) =>
+                    const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final category = categories[index];
                   final selected = selectedCategory == category;
@@ -571,6 +984,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 },
               ),
             ),
+
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
@@ -591,6 +1005,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ],
               ),
             ),
+
             Expanded(
               child: visibleProducts.isEmpty
                   ? Center(
@@ -600,10 +1015,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        90,
+                      ),
                       itemCount: visibleProducts.length,
                       itemBuilder: (context, index) {
                         final product = visibleProducts[index];
+
                         final lowStock =
                             product.quantity <= product.minimumStock;
 
@@ -648,7 +1069,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 11,
                                     ),
                                   ),
+
                                   const SizedBox(height: 5),
+
                                   Text(
                                     'Cost: Rs. ${product.costPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
@@ -656,6 +1079,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 11,
                                     ),
                                   ),
+
                                   Text(
                                     'Selling: Rs. ${product.sellingPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
@@ -664,7 +1088,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 12,
                                     ),
                                   ),
+
                                   const SizedBox(height: 5),
+
                                   Text(
                                     product.supplier.isEmpty
                                         ? 'Supplier: Not specified'
@@ -689,6 +1115,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+
                                 Text(
                                   product.unit,
                                   style: TextStyle(
@@ -696,7 +1123,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                     fontSize: 10,
                                   ),
                                 ),
+
                                 const SizedBox(height: 5),
+
                                 Text(
                                   lowStock ? 'Low Stock' : 'In Stock',
                                   style: TextStyle(
