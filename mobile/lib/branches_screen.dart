@@ -1,13 +1,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'inventory_data.dart';
+import 'code_generator.dart';
 
 class BranchesScreen extends ConsumerStatefulWidget {
   const BranchesScreen({super.key});
 
   @override
-  ConsumerState<BranchesScreen> createState() => _BranchesScreenState();
+  ConsumerState<BranchesScreen> createState() =>
+      _BranchesScreenState();
 }
 
 class _BranchesScreenState extends ConsumerState<BranchesScreen> {
@@ -15,7 +18,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
   final Color panel = const Color(0xFF121D2D);
   final Color muted = const Color(0xFF91A4BE);
 
-  final TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController =
+      TextEditingController();
+
   String filter = 'All';
 
   List<InventoryBranch> get filteredBranches {
@@ -43,13 +48,35 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
   }
 
   void showBranchForm({InventoryBranch? branch}) {
-    final nameController = TextEditingController(text: branch?.name ?? '');
-    final codeController = TextEditingController(text: branch?.code ?? '');
-    final cityController = TextEditingController(text: branch?.city ?? '');
-    final addressController = TextEditingController(text: branch?.address ?? '');
-    final phoneController = TextEditingController(text: branch?.phone ?? '');
-    final emailController = TextEditingController(text: branch?.email ?? '');
-    final managerController = TextEditingController(text: branch?.manager ?? '');
+    final inventory = ref.read(inventoryProvider);
+
+    final nameController =
+        TextEditingController(text: branch?.name ?? '');
+
+    final codeController = TextEditingController(
+      text: branch?.code ??
+          CodeGenerator.next(
+            prefix: 'BR',
+            existingCodes: inventory.branches.map(
+              (item) => item.code,
+            ),
+          ),
+    );
+
+    final cityController =
+        TextEditingController(text: branch?.city ?? '');
+
+    final addressController =
+        TextEditingController(text: branch?.address ?? '');
+
+    final phoneController =
+        TextEditingController(text: branch?.phone ?? '');
+
+    final emailController =
+        TextEditingController(text: branch?.email ?? '');
+
+    final managerController =
+        TextEditingController(text: branch?.manager ?? '');
 
     showDialog(
       context: context,
@@ -67,7 +94,11 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _formField(nameController, 'Branch Name *'),
-                  _formField(codeController, 'Branch Code *'),
+                  _formField(
+                    codeController,
+                    'Branch Code (Auto-generated)',
+                    readOnly: true,
+                  ),
                   _formField(cityController, 'City *'),
                   _formField(addressController, 'Address'),
                   _formField(phoneController, 'Phone Number'),
@@ -80,7 +111,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Cancel', style: TextStyle(color: muted)),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: muted),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -92,17 +126,20 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 final code = codeController.text.trim();
                 final city = cityController.text.trim();
 
-                if (name.isEmpty || code.isEmpty || city.isEmpty) {
+                if (name.isEmpty || city.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please fill all required fields.'),
+                      content: Text(
+                        'Please fill all required fields.',
+                      ),
                     ),
                   );
                   return;
                 }
 
                 try {
-                  final inventory = ref.read(inventoryProvider);
+                  final inventory =
+                      ref.read(inventoryProvider);
 
                   if (branch == null) {
                     inventory.addBranch(
@@ -129,6 +166,8 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
 
                   Navigator.pop(dialogContext);
 
+                  setState(() {});
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -142,7 +181,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        error.toString().replaceFirst('Exception: ', ''),
+                        error.toString().replaceFirst(
+                          'Exception: ',
+                          '',
+                        ),
                       ),
                     ),
                   );
@@ -156,11 +198,16 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     );
   }
 
-  Widget _formField(TextEditingController controller, String label) {
+  Widget _formField(
+    TextEditingController controller,
+    String label, {
+    bool readOnly = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
+        readOnly: readOnly,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           labelText: label,
@@ -181,7 +228,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
       backgroundColor: panel,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
       ),
       builder: (sheetContext) {
         return Padding(
@@ -199,14 +248,20 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(branch.code, style: TextStyle(color: muted)),
+              Text(
+                branch.code,
+                style: TextStyle(color: muted),
+              ),
               const SizedBox(height: 20),
               _detailRow('City', branch.city),
               _detailRow('Address', branch.address),
               _detailRow('Phone', branch.phone),
               _detailRow('Email', branch.email),
               _detailRow('Manager', branch.manager),
-              _detailRow('Status', branch.active ? 'Active' : 'Inactive'),
+              _detailRow(
+                'Status',
+                branch.active ? 'Active' : 'Inactive',
+              ),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -227,13 +282,17 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () {
-                        ref.read(inventoryProvider).toggleBranchStatus(
-                              branch.id,
-                            );
+                        ref
+                            .read(inventoryProvider)
+                            .toggleBranchStatus(branch.id);
+
                         Navigator.pop(sheetContext);
+                        setState(() {});
                       },
                       child: Text(
-                        branch.active ? 'Deactivate' : 'Activate',
+                        branch.active
+                            ? 'Deactivate'
+                            : 'Activate',
                       ),
                     ),
                   ),
@@ -255,7 +314,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
         children: [
           SizedBox(
             width: 90,
-            child: Text(title, style: TextStyle(color: muted)),
+            child: Text(
+              title,
+              style: TextStyle(color: muted),
+            ),
           ),
           Expanded(
             child: Text(
@@ -268,7 +330,11 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     );
   }
 
-  Widget _summaryCard(String title, String value, IconData icon) {
+  Widget _summaryCard(
+    String title,
+    String value,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -289,7 +355,13 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(title, style: TextStyle(color: muted, fontSize: 12)),
+          Text(
+            title,
+            style: TextStyle(
+              color: muted,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -341,7 +413,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
               child: TextField(
                 controller: searchController,
                 onChanged: (_) => setState(() {}),
@@ -349,7 +423,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search branches...',
                   hintStyle: TextStyle(color: muted),
-                  prefixIcon: Icon(Icons.search, color: muted),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: muted,
+                  ),
                   filled: true,
                   fillColor: panel,
                   border: OutlineInputBorder(
@@ -361,25 +438,33 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             ),
             const SizedBox(height: 14),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
               child: Row(
-                children: ['All', 'Active', 'Inactive'].map((item) {
-                  final selected = filter == item;
+                children: ['All', 'Active', 'Inactive'].map(
+                  (item) {
+                    final selected = filter == item;
 
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(item),
-                      selected: selected,
-                      onSelected: (_) => setState(() => filter = item),
-                      selectedColor: blue,
-                      backgroundColor: panel,
-                      labelStyle: TextStyle(
-                        color: selected ? Colors.white : muted,
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(item),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() => filter = item);
+                        },
+                        selectedColor: blue,
+                        backgroundColor: panel,
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : muted,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  },
+                ).toList(),
               ),
             ),
             const SizedBox(height: 10),
@@ -392,23 +477,38 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        4,
+                        16,
+                        90,
+                      ),
                       itemCount: visibleBranches.length,
                       itemBuilder: (context, index) {
                         final branch = visibleBranches[index];
 
                         return Card(
                           color: panel,
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(
+                            bottom: 12,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius:
+                                BorderRadius.circular(14),
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.all(14),
-                            onTap: () => showBranchDetails(branch),
+                            contentPadding:
+                                const EdgeInsets.all(14),
+                            onTap: () {
+                              showBranchDetails(branch);
+                            },
                             leading: CircleAvatar(
-                              backgroundColor: blue.withValues(alpha: 0.15),
-                              child: Icon(Icons.store, color: blue),
+                              backgroundColor:
+                                  blue.withValues(alpha: 0.15),
+                              child: Icon(
+                                Icons.store,
+                                color: blue,
+                              ),
                             ),
                             title: Text(
                               branch.name,
@@ -418,14 +518,17 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                               ),
                             ),
                             subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.only(
+                                top: 6,
+                              ),
                               child: Text(
                                 '${branch.code} • ${branch.city}',
                                 style: TextStyle(color: muted),
                               ),
                             ),
                             trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.circle,
@@ -436,7 +539,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
-                                  branch.active ? 'Active' : 'Inactive',
+                                  branch.active
+                                      ? 'Active'
+                                      : 'Inactive',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: branch.active
