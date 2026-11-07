@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_settings.dart';
 import 'dashboard_screen.dart';
+import 'l10n/app_localizations.dart';
 
 void main() {
   runApp(
@@ -43,25 +44,19 @@ class UniversalInventoryApp extends ConsumerWidget {
       title: 'Universal Inventory',
       debugShowCheckedModeBanner: false,
 
+      // APP LANGUAGE
       locale: settings.locale,
 
-      supportedLocales: const [
-        Locale('en'),
-        Locale('ne'),
-        Locale('hi'),
-        Locale('bn'),
-        Locale('zh'),
-        Locale('es'),
-        Locale('fr'),
-        Locale('ar'),
-      ],
+      supportedLocales: AppLocalizations.supportedLocales,
 
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
 
+      // APP THEME
       themeMode: settings.themeMode,
 
       theme: ThemeData(
