@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'notifications_data.dart';
@@ -22,7 +21,6 @@ class InventoryProduct {
   final String supplier;
 
   int quantity;
-
   final Map<String, int> branchQuantities;
 
   InventoryProduct({
@@ -124,6 +122,39 @@ class InventoryBranch {
 }
 
 // ============================================================
+// CUSTOMER MODEL
+// ============================================================
+
+class InventoryCustomer {
+  final String id;
+  final String code;
+  final String name;
+  final String phone;
+  final String email;
+  final String address;
+  final String city;
+  final String country;
+  final String notes;
+  final DateTime createdAt;
+
+  bool active;
+
+  InventoryCustomer({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.phone = '',
+    this.email = '',
+    this.address = '',
+    this.city = '',
+    this.country = 'Nepal',
+    this.notes = '',
+    required this.createdAt,
+    this.active = true,
+  });
+}
+
+// ============================================================
 // SALES MODELS
 // ============================================================
 
@@ -199,16 +230,11 @@ class SaleRecord {
   double get profit =>
       items.fold(0.0, (sum, item) => sum + item.profit);
 }
-
 // ============================================================
 // INVENTORY DATA
 // ============================================================
 
 class InventoryData extends ChangeNotifier {
-  // ----------------------------------------------------------
-  // NOTIFICATIONS
-  // ----------------------------------------------------------
-
   final NotificationCenter notificationCenter = NotificationCenter();
 
   InventoryData() {
@@ -222,9 +248,9 @@ class InventoryData extends ChangeNotifier {
     super.dispose();
   }
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // CATEGORIES
-  // ----------------------------------------------------------
+  // ==========================================================
 
   final List<InventoryCategory> _categories = [
     InventoryCategory(
@@ -257,9 +283,9 @@ class InventoryData extends ChangeNotifier {
     ),
   ];
 
-  // ----------------------------------------------------------
-  // SAMPLE PRODUCTS
-  // ----------------------------------------------------------
+  // ==========================================================
+  // PRODUCTS
+  // ==========================================================
 
   final List<InventoryProduct> _products = [
     InventoryProduct(
@@ -308,15 +334,15 @@ class InventoryData extends ChangeNotifier {
     ),
   ];
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // STOCK MOVEMENTS
-  // ----------------------------------------------------------
+  // ==========================================================
 
   final List<StockMovement> _movements = [];
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // BRANCHES
-  // ----------------------------------------------------------
+  // ==========================================================
 
   final List<InventoryBranch> _branches = [
     InventoryBranch(
@@ -354,72 +380,66 @@ class InventoryData extends ChangeNotifier {
     ),
   ];
 
-  // ----------------------------------------------------------
+  // ==========================================================
+  // CUSTOMERS
+  // ==========================================================
+
+  final List<InventoryCustomer> _customers = [];
+
+  // ==========================================================
   // SALES RECORDS
-  // ----------------------------------------------------------
+  // ==========================================================
 
   final List<SaleRecord> _sales = [];
 
   // ==========================================================
-  // CODE GENERATION HELPERS
+  // CODE GENERATION
   // ==========================================================
 
-  String generateProductCode() {
-    return CodeGenerator.nextProduct(
-      _products.map((product) => product.sku),
-    );
-  }
+  String generateProductCode() =>
+      CodeGenerator.nextProduct(_products.map((e) => e.sku));
 
-  String generateCategoryCode() {
-    return CodeGenerator.nextCategory(
-      _categories.map((category) => category.code),
-    );
-  }
+  String generateCategoryCode() =>
+      CodeGenerator.nextCategory(_categories.map((e) => e.code));
 
-  String generateBranchCode() {
-    return CodeGenerator.nextBranch(
-      _branches.map((branch) => branch.code),
-    );
-  }
+  String generateBranchCode() =>
+      CodeGenerator.nextBranch(_branches.map((e) => e.code));
 
-  String generateStockMovementCode() {
-    return CodeGenerator.nextStockMovement(
-      _movements.map((movement) => movement.referenceCode),
-    );
-  }
+  String generateCustomerCode() =>
+      CodeGenerator.nextCustomer(_customers.map((e) => e.code));
 
-  String generateTransferCode() {
-    return CodeGenerator.nextTransfer(
-      _movements
-          .where((movement) => movement.transferCode != null)
-          .map((movement) => movement.transferCode!),
-    );
-  }
+  String generateStockMovementCode() =>
+      CodeGenerator.nextStockMovement(
+        _movements.map((e) => e.referenceCode),
+      );
 
-  String generateInvoiceCode() {
-    return CodeGenerator.nextInvoice(
-      _sales.map((sale) => sale.invoiceNumber),
-    );
-  }
+  String generateTransferCode() =>
+      CodeGenerator.nextTransfer(
+        _movements
+            .where((e) => e.transferCode != null)
+            .map((e) => e.transferCode!),
+      );
+
+  String generateInvoiceCode() =>
+      CodeGenerator.nextInvoice(_sales.map((e) => e.invoiceNumber));
 
   // ==========================================================
   // PUBLIC DATA
   // ==========================================================
 
-  List<InventoryProduct> get products =>
-      List.unmodifiable(_products);
+  List<InventoryProduct> get products => List.unmodifiable(_products);
 
   List<InventoryCategory> get categories =>
       List.unmodifiable(_categories);
 
-  List<StockMovement> get movements =>
-      List.unmodifiable(_movements);
+  List<StockMovement> get movements => List.unmodifiable(_movements);
 
-  List<InventoryBranch> get branches =>
-      List.unmodifiable(_branches);
+  List<InventoryBranch> get branches => List.unmodifiable(_branches);
 
-  List<SaleRecord> get sales =>
-      List.unmodifiable(_sales);
+  List<InventoryCustomer> get customers =>
+      List.unmodifiable(_customers);
+
+  List<SaleRecord> get sales => List.unmodifiable(_sales);
 
   int get totalStock =>
       _products.fold(0, (total, product) => total + product.quantity);
@@ -433,6 +453,11 @@ class InventoryData extends ChangeNotifier {
 
   int get activeCategoryCount =>
       _categories.where((category) => category.active).length;
+
+  int get activeCustomerCount =>
+      _customers.where((customer) => customer.active).length;
+
+  int get totalCustomerCount => _customers.length;
 
   double get totalSales =>
       _sales.fold(0.0, (total, sale) => total + sale.total);
@@ -454,10 +479,12 @@ class InventoryData extends ChangeNotifier {
   int get salesCountToday {
     final now = DateTime.now();
 
-    return _sales.where((sale) =>
-        sale.date.year == now.year &&
-        sale.date.month == now.month &&
-        sale.date.day == now.day).length;
+    return _sales
+        .where((sale) =>
+            sale.date.year == now.year &&
+            sale.date.month == now.month &&
+            sale.date.day == now.day)
+        .length;
   }
 
   // ==========================================================
@@ -493,7 +520,24 @@ class InventoryData extends ChangeNotifier {
         return category;
       }
     }
+    return null;
+  }
 
+  InventoryCustomer? findCustomer(String customerId) {
+    for (final customer in _customers) {
+      if (customer.id == customerId) return customer;
+    }
+    return null;
+  }
+
+  InventoryCustomer? findCustomerByCode(String code) {
+    final cleanCode = code.trim().toLowerCase();
+
+    for (final customer in _customers) {
+      if (customer.code.toLowerCase() == cleanCode) {
+        return customer;
+      }
+    }
     return null;
   }
 
@@ -507,7 +551,6 @@ class InventoryData extends ChangeNotifier {
   int getBranchQuantity(String productId, String branchId) {
     final product = findProduct(productId);
     if (product == null) return 0;
-
     return product.branchQuantities[branchId] ?? 0;
   }
 
@@ -522,10 +565,182 @@ class InventoryData extends ChangeNotifier {
 
   List<InventoryProduct> getProductsByCategory(String categoryName) {
     return List.unmodifiable(
-      _products.where(
-        (product) => product.category == categoryName,
+      _products.where((product) => product.category == categoryName),
+    );
+  }
+
+  // ==========================================================
+  // CUSTOMER MANAGEMENT
+  // ==========================================================
+
+  void addCustomer({
+    required String name,
+    String? code,
+    String phone = '',
+    String email = '',
+    String address = '',
+    String city = '',
+    String country = 'Nepal',
+    String notes = '',
+  }) {
+    final cleanName = name.trim();
+
+    if (cleanName.isEmpty) {
+      throw Exception('Customer name is required.');
+    }
+
+    final cleanPhone = phone.trim();
+    final cleanEmail = email.trim();
+
+    if (cleanPhone.isEmpty && cleanEmail.isEmpty) {
+      throw Exception('Enter at least a phone number or email address.');
+    }
+
+    if (cleanEmail.isNotEmpty &&
+        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(cleanEmail)) {
+      throw Exception('Enter a valid email address.');
+    }
+
+    if (cleanPhone.isNotEmpty &&
+        _customers.any((customer) =>
+            customer.phone.trim() == cleanPhone)) {
+      throw Exception('A customer with this phone number already exists.');
+    }
+
+    final cleanCode = code?.trim().isNotEmpty == true
+        ? code!.trim()
+        : generateCustomerCode();
+
+    if (_customers.any((customer) =>
+        customer.code.toLowerCase() == cleanCode.toLowerCase())) {
+      throw Exception('This customer code already exists.');
+    }
+
+    _customers.add(
+      InventoryCustomer(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        code: cleanCode,
+        name: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail,
+        address: address.trim(),
+        city: city.trim(),
+        country: country.trim().isEmpty ? 'Nepal' : country.trim(),
+        notes: notes.trim(),
+        createdAt: DateTime.now(),
       ),
     );
+
+    notifyListeners();
+  }
+
+  void updateCustomer({
+    required String customerId,
+    required String name,
+    required String phone,
+    required String email,
+    required String address,
+    required String city,
+    required String country,
+    required String notes,
+  }) {
+    final customer = findCustomer(customerId);
+
+    if (customer == null) {
+      throw Exception('Customer not found.');
+    }
+
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    final cleanEmail = email.trim();
+
+    if (cleanName.isEmpty) {
+      throw Exception('Customer name is required.');
+    }
+
+    if (cleanPhone.isEmpty && cleanEmail.isEmpty) {
+      throw Exception('Enter at least a phone number or email address.');
+    }
+
+    if (cleanEmail.isNotEmpty &&
+        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(cleanEmail)) {
+      throw Exception('Enter a valid email address.');
+    }
+
+    final duplicatePhone = _customers.any((item) =>
+        item.id != customerId &&
+        cleanPhone.isNotEmpty &&
+        item.phone.trim() == cleanPhone);
+
+    if (duplicatePhone) {
+      throw Exception('Another customer already uses this phone number.');
+    }
+
+    final index = _customers.indexOf(customer);
+
+    _customers[index] = InventoryCustomer(
+      id: customer.id,
+      code: customer.code,
+      name: cleanName,
+      phone: cleanPhone,
+      email: cleanEmail,
+      address: address.trim(),
+      city: city.trim(),
+      country: country.trim().isEmpty ? 'Nepal' : country.trim(),
+      notes: notes.trim(),
+      createdAt: customer.createdAt,
+      active: customer.active,
+    );
+
+    notifyListeners();
+  }
+
+  void toggleCustomerStatus(String customerId) {
+    final customer = findCustomer(customerId);
+
+    if (customer == null) {
+      throw Exception('Customer not found.');
+    }
+
+    customer.active = !customer.active;
+    notifyListeners();
+  }
+
+  void deleteCustomer(String customerId) {
+    final customer = findCustomer(customerId);
+
+    if (customer == null) {
+      throw Exception('Customer not found.');
+    }
+
+    final hasSales = _sales.any((sale) =>
+        sale.customerName.trim().toLowerCase() ==
+            customer.name.trim().toLowerCase() &&
+        sale.customerPhone.trim() == customer.phone.trim());
+
+    if (hasSales) {
+      throw Exception(
+        'This customer has sales history. Deactivate the customer instead.',
+      );
+    }
+
+    _customers.remove(customer);
+    notifyListeners();
+  }
+
+  List<InventoryCustomer> searchCustomers(String query) {
+    final q = query.trim().toLowerCase();
+
+    if (q.isEmpty) return List.unmodifiable(_customers);
+
+    return List.unmodifiable(_customers.where((customer) {
+      return customer.name.toLowerCase().contains(q) ||
+          customer.code.toLowerCase().contains(q) ||
+          customer.phone.toLowerCase().contains(q) ||
+          customer.email.toLowerCase().contains(q) ||
+          customer.city.toLowerCase().contains(q) ||
+          customer.address.toLowerCase().contains(q);
+    }));
   }
 
   // ==========================================================
@@ -543,12 +758,8 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Category name is required.');
     }
 
-    final duplicateName = _categories.any(
-      (category) =>
-          category.name.toLowerCase() == cleanName.toLowerCase(),
-    );
-
-    if (duplicateName) {
+    if (_categories.any((category) =>
+        category.name.toLowerCase() == cleanName.toLowerCase())) {
       throw Exception('A category with this name already exists.');
     }
 
@@ -556,12 +767,8 @@ class InventoryData extends ChangeNotifier {
         ? code!.trim()
         : generateCategoryCode();
 
-    final duplicateCode = _categories.any(
-      (category) =>
-          category.code.toLowerCase() == cleanCode.toLowerCase(),
-    );
-
-    if (duplicateCode) {
+    if (_categories.any((category) =>
+        category.code.toLowerCase() == cleanCode.toLowerCase())) {
       throw Exception('This category code already exists.');
     }
 
@@ -595,13 +802,9 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Category name is required.');
     }
 
-    final duplicateName = _categories.any(
-      (item) =>
-          item.id != categoryId &&
-          item.name.toLowerCase() == cleanName.toLowerCase(),
-    );
-
-    if (duplicateName) {
+    if (_categories.any((item) =>
+        item.id != categoryId &&
+        item.name.toLowerCase() == cleanName.toLowerCase())) {
       throw Exception('A category with this name already exists.');
     }
 
@@ -620,10 +823,7 @@ class InventoryData extends ChangeNotifier {
       final product = _products[i];
 
       if (product.category == oldName) {
-        _products[i] = _copyProduct(
-          product,
-          category: cleanName,
-        );
+        _products[i] = _copyProduct(product, category: cleanName);
       }
     }
 
@@ -648,734 +848,835 @@ class InventoryData extends ChangeNotifier {
       throw Exception('Category not found.');
     }
 
-    final isUsed = _products.any(
-      (product) => product.category == category.name,
-    );
-
-    if (isUsed) {
+    if (_products.any((product) => product.category == category.name)) {
       throw Exception(
         'This category is assigned to products. '
-        'Move those products to another category before deleting it.',
+        'Move those products before deleting it.',
       );
     }
 
-    _categories.removeWhere(
-      (item) => item.id == categoryId,
-    );
-
+    _categories.removeWhere((item) => item.id == categoryId);
     notifyListeners();
   }
+// ============================================================
+// PRODUCT HELPERS
+// ============================================================
 
-  // ==========================================================
-  // PRODUCT COPY HELPER
-  // ==========================================================
+InventoryProduct _copyProduct(
+  InventoryProduct product, {
+  String? name,
+  String? category,
+  String? barcode,
+  String? description,
+  double? costPrice,
+  double? sellingPrice,
+  String? unit,
+  int? minimumStock,
+  String? supplier,
+}) {
+  return InventoryProduct(
+    id: product.id,
+    name: name ?? product.name,
+    sku: product.sku,
+    category: category ?? product.category,
+    barcode: barcode ?? product.barcode,
+    description: description ?? product.description,
+    costPrice: costPrice ?? product.costPrice,
+    sellingPrice: sellingPrice ?? product.sellingPrice,
+    unit: unit ?? product.unit,
+    minimumStock: minimumStock ?? product.minimumStock,
+    supplier: supplier ?? product.supplier,
+    quantity: product.quantity,
+    branchQuantities: Map<String, int>.from(
+      product.branchQuantities,
+    ),
+  );
+}
 
-  InventoryProduct _copyProduct(
-    InventoryProduct product, {
-    String? name,
-    String? category,
-    String? barcode,
-    String? description,
-    double? costPrice,
-    double? sellingPrice,
-    String? unit,
-    int? minimumStock,
-    String? supplier,
-  }) {
-    return InventoryProduct(
-      id: product.id,
-      name: name ?? product.name,
-      sku: product.sku,
-      category: category ?? product.category,
-      barcode: barcode ?? product.barcode,
-      description: description ?? product.description,
-      costPrice: costPrice ?? product.costPrice,
-      sellingPrice: sellingPrice ?? product.sellingPrice,
-      unit: unit ?? product.unit,
-      minimumStock: minimumStock ?? product.minimumStock,
-      supplier: supplier ?? product.supplier,
-      quantity: product.quantity,
-      branchQuantities:
-          Map<String, int>.from(product.branchQuantities),
+void _checkStockAlerts(
+  InventoryProduct product,
+  int previousQuantity,
+) {
+  if (previousQuantity > 0 && product.quantity == 0) {
+    notificationCenter.add(
+      title: 'Out of Stock',
+      message: '${product.name} is now out of stock.',
+      category: NotificationCategory.inventory,
+      action: 'product',
+      relatedId: product.id,
+    );
+  } else if (previousQuantity > product.minimumStock &&
+      product.quantity <= product.minimumStock) {
+    notificationCenter.add(
+      title: 'Low Stock',
+      message:
+          '${product.name} has reached its minimum stock level.',
+      category: NotificationCategory.inventory,
+      action: 'product',
+      relatedId: product.id,
     );
   }
+}
 
-  // ==========================================================
-  // STOCK ALERTS
-  // ==========================================================
+StockMovement _createMovement({
+  required String productId,
+  required String productName,
+  required String type,
+  required int quantity,
+  required String branchId,
+  String? transferCode,
+  DateTime? date,
+}) {
+  return StockMovement(
+    referenceCode: generateStockMovementCode(),
+    productId: productId,
+    productName: productName,
+    type: type,
+    quantity: quantity,
+    date: date ?? DateTime.now(),
+    branchId: branchId,
+    transferCode: transferCode,
+  );
+}
 
-  void _checkStockAlerts(
-    InventoryProduct product,
-    int previousQuantity,
-  ) {
-    if (previousQuantity > 0 && product.quantity == 0) {
-      notificationCenter.add(
-        title: 'Out of Stock',
-        message: '${product.name} is now out of stock.',
-        category: NotificationCategory.inventory,
-        relatedId: product.id,
-        action: 'product',
-      );
-    } else if (previousQuantity > product.minimumStock &&
-        product.quantity <= product.minimumStock) {
-      notificationCenter.add(
-        title: 'Low Stock',
-        message:
-            '${product.name} has only ${product.quantity} ${product.unit} remaining.',
-        category: NotificationCategory.inventory,
-        relatedId: product.id,
-        action: 'product',
-      );
-    }
+// ============================================================
+// PRODUCT MANAGEMENT
+// ============================================================
+
+void addProduct({
+  required String name,
+  String? sku,
+  required String category,
+  required double sellingPrice,
+  required int openingQuantity,
+  double costPrice = 0,
+  String barcode = '',
+  String description = '',
+  String unit = 'Pieces',
+  int minimumStock = 5,
+  String supplier = '',
+  String initialBranchId = '1',
+}) {
+  if (name.trim().isEmpty) {
+    throw Exception('Product name is required.');
   }
 
-  // ==========================================================
-  // STOCK MOVEMENT HELPER
-  // ==========================================================
-
-  StockMovement _createMovement({
-    required String productId,
-    required String productName,
-    required String type,
-    required int quantity,
-    required String branchId,
-    String? transferCode,
-    DateTime? date,
-  }) {
-    return StockMovement(
-      referenceCode: generateStockMovementCode(),
-      productId: productId,
-      productName: productName,
-      type: type,
-      quantity: quantity,
-      date: date ?? DateTime.now(),
-      branchId: branchId,
-      transferCode: transferCode,
-    );
+  if (category.trim().isEmpty) {
+    throw Exception('Please select a category.');
   }
 
-  // ==========================================================
-  // PRODUCT MANAGEMENT
-  // ==========================================================
+  final selectedCategory = findCategory(category);
 
-  void addProduct({
-    required String name,
-    String? sku,
-    required String category,
-    required double sellingPrice,
-    required int openingQuantity,
-    double costPrice = 0,
-    String barcode = '',
-    String description = '',
-    String unit = 'Pieces',
-    int minimumStock = 5,
-    String supplier = '',
-    String initialBranchId = '1',
-  }) {
-    final cleanName = name.trim();
-    final cleanCategory = category.trim();
-
-    if (cleanName.isEmpty) {
-      throw Exception('Product name is required.');
-    }
-
-    if (cleanCategory.isEmpty) {
-      throw Exception('Product category is required.');
-    }
-
-    final selectedCategory = findCategoryByName(cleanCategory);
-
-    if (selectedCategory == null) {
-      throw Exception('Please select a valid category.');
-    }
-
-    if (!selectedCategory.active) {
-      throw Exception('This category is inactive.');
-    }
-
-    if (sellingPrice < 0 ||
-        costPrice < 0 ||
-        openingQuantity < 0 ||
-        minimumStock < 0) {
-      throw Exception('Prices and quantities cannot be negative.');
-    }
-
-    final cleanSku = sku?.trim().isNotEmpty == true
-        ? sku!.trim()
-        : generateProductCode();
-
-    final duplicate = _products.any(
-      (product) =>
-          product.sku.trim().toLowerCase() == cleanSku.toLowerCase(),
-    );
-
-    if (duplicate) {
-      throw Exception('A product with this SKU already exists.');
-    }
-
-    if (findBranch(initialBranchId) == null) {
-      throw Exception('Selected branch was not found.');
-    }
-
-    final product = InventoryProduct(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: cleanName,
-      sku: cleanSku,
-      category: selectedCategory.name,
-      barcode: barcode.trim(),
-      description: description.trim(),
-      costPrice: costPrice,
-      sellingPrice: sellingPrice,
-      unit: unit.trim().isEmpty ? 'Pieces' : unit.trim(),
-      minimumStock: minimumStock,
-      supplier: supplier.trim(),
-      quantity: openingQuantity,
-      branchQuantities: {initialBranchId: openingQuantity},
-    );
-
-    _products.add(product);
-
-    if (openingQuantity > 0) {
-      _movements.insert(
-        0,
-        _createMovement(
-          productId: product.id,
-          productName: product.name,
-          type: 'Stock In',
-          quantity: openingQuantity,
-          branchId: initialBranchId,
-        ),
-      );
-    }
-
-    notifyListeners();
+  if (selectedCategory == null || !selectedCategory.active) {
+    throw Exception('Selected category is unavailable.');
   }
 
-  // ----------------------------------------------------------
-  // UPDATE PRODUCT DETAILS
-  // ----------------------------------------------------------
-
-  void updateProduct({
-    required String productId,
-    required String name,
-    required String category,
-    required double costPrice,
-    required double sellingPrice,
-    required String barcode,
-    required String description,
-    required String unit,
-    required int minimumStock,
-    required String supplier,
-  }) {
-    final index = _products.indexWhere(
-      (product) => product.id == productId,
-    );
-
-    if (index == -1) {
-      throw Exception('Product not found.');
-    }
-
-    final oldProduct = _products[index];
-    final cleanName = name.trim();
-    final cleanCategory = category.trim();
-
-    if (cleanName.isEmpty) {
-      throw Exception('Product name is required.');
-    }
-
-    final selectedCategory = findCategoryByName(cleanCategory);
-
-    if (selectedCategory == null) {
-      throw Exception('Please select a valid category.');
-    }
-
-    if (!selectedCategory.active) {
-      throw Exception('This category is inactive.');
-    }
-
-    if (costPrice < 0 ||
-        sellingPrice < 0 ||
-        minimumStock < 0) {
-      throw Exception('Prices and minimum stock cannot be negative.');
-    }
-
-    _products[index] = _copyProduct(
-      oldProduct,
-      name: cleanName,
-      category: selectedCategory.name,
-      barcode: barcode.trim(),
-      description: description.trim(),
-      costPrice: costPrice,
-      sellingPrice: sellingPrice,
-      unit: unit.trim().isEmpty ? oldProduct.unit : unit.trim(),
-      minimumStock: minimumStock,
-      supplier: supplier.trim(),
-    );
-
-    notifyListeners();
+  if (sellingPrice < 0 ||
+      costPrice < 0 ||
+      openingQuantity < 0 ||
+      minimumStock < 0) {
+    throw Exception('Prices and quantities cannot be negative.');
   }
 
-  // ==========================================================
-  // STOCK ALLOCATION
-  // ==========================================================
+  final productSku = sku?.trim().isNotEmpty == true
+      ? sku!.trim()
+      : generateProductCode();
 
-  void allocateStockToBranch({
-    required String productId,
-    required String branchId,
-    required int quantity,
-  }) {
-    if (quantity <= 0) {
-      throw Exception('Quantity must be greater than zero.');
-    }
+  if (_products.any(
+    (product) => product.sku.toLowerCase() == productSku.toLowerCase(),
+  )) {
+    throw Exception('A product with this code already exists.');
+  }
 
-    final product = findProduct(productId);
-    if (product == null) throw Exception('Product not found.');
+  final branchExists = _branches.any(
+    (branch) => branch.id == initialBranchId && branch.active,
+  );
 
-    final branch = findBranch(branchId);
-    if (branch == null) throw Exception('Branch not found.');
+  if (!branchExists) {
+    throw Exception('Please select a valid active branch.');
+  }
 
-    product.branchQuantities[branchId] =
-        (product.branchQuantities[branchId] ?? 0) + quantity;
+  final product = InventoryProduct(
+    id: DateTime.now().microsecondsSinceEpoch.toString(),
+    name: name.trim(),
+    sku: productSku,
+    category: category,
+    barcode: barcode.trim(),
+    description: description.trim(),
+    costPrice: costPrice,
+    sellingPrice: sellingPrice,
+    unit: unit,
+    minimumStock: minimumStock,
+    supplier: supplier.trim(),
+    quantity: openingQuantity,
+    branchQuantities: {
+      initialBranchId: openingQuantity,
+    },
+  );
 
-    product.quantity += quantity;
+  _products.add(product);
 
+  if (openingQuantity > 0) {
     _movements.insert(
       0,
       _createMovement(
         productId: product.id,
         productName: product.name,
         type: 'Stock In',
-        quantity: quantity,
-        branchId: branchId,
+        quantity: openingQuantity,
+        branchId: initialBranchId,
       ),
     );
-
-    notificationCenter.add(
-      title: 'Stock In',
-      message:
-          '$quantity ${product.unit} of ${product.name} allocated to ${branch.name}.',
-      category: NotificationCategory.stock,
-      relatedId: product.id,
-      action: 'stock',
-    );
-
-    notifyListeners();
   }
 
-  // ==========================================================
-  // STOCK TRANSFER
-  // ==========================================================
+  _checkStockAlerts(product, 0);
+  notifyListeners();
+}
 
-  void transferStock({
-    required String productId,
-    required String fromBranchId,
-    required String toBranchId,
-    required int quantity,
-  }) {
-    if (quantity <= 0) {
-      throw Exception('Quantity must be greater than zero.');
-    }
+void updateProduct({
+  required String productId,
+  required String name,
+  required String category,
+  required double costPrice,
+  required double sellingPrice,
+  required String barcode,
+  required String description,
+  required String unit,
+  required int minimumStock,
+  required String supplier,
+}) {
+  final index = _products.indexWhere(
+    (product) => product.id == productId,
+  );
 
-    if (fromBranchId == toBranchId) {
-      throw Exception('Choose two different branches.');
-    }
-
-    final product = findProduct(productId);
-    if (product == null) throw Exception('Product not found.');
-
-    final fromBranch = findBranch(fromBranchId);
-    final toBranch = findBranch(toBranchId);
-
-    if (fromBranch == null || toBranch == null) {
-      throw Exception('Branch not found.');
-    }
-
-    final sourceQuantity =
-        product.branchQuantities[fromBranchId] ?? 0;
-
-    if (sourceQuantity < quantity) {
-      throw Exception('Not enough stock at the source branch.');
-    }
-
-    final transferCode = generateTransferCode();
-    final transferDate = DateTime.now();
-
-    product.branchQuantities[fromBranchId] =
-        sourceQuantity - quantity;
-
-    product.branchQuantities[toBranchId] =
-        (product.branchQuantities[toBranchId] ?? 0) + quantity;
-
-    _movements.insertAll(0, [
-      _createMovement(
-        productId: product.id,
-        productName: product.name,
-        type: 'Transfer Out',
-        quantity: quantity,
-        branchId: fromBranchId,
-        transferCode: transferCode,
-        date: transferDate,
-      ),
-      _createMovement(
-        productId: product.id,
-        productName: product.name,
-        type: 'Transfer In',
-        quantity: quantity,
-        branchId: toBranchId,
-        transferCode: transferCode,
-        date: transferDate,
-      ),
-    ]);
-
-    notificationCenter.add(
-      title: 'Branch Transfer',
-      message:
-          '$quantity ${product.unit} of ${product.name} transferred from ${fromBranch.name} to ${toBranch.name}. Reference: $transferCode.',
-      category: NotificationCategory.stock,
-      relatedId: transferCode,
-      action: 'stock',
-    );
-
-    notifyListeners();
+  if (index == -1) {
+    throw Exception('Product not found.');
   }
 
-  // ==========================================================
-  // STOCK IN / STOCK OUT
-  // ==========================================================
+  if (name.trim().isEmpty) {
+    throw Exception('Product name is required.');
+  }
 
-  void recordStockMovement({
-    required String productId,
-    required String type,
-    required int quantity,
-    String branchId = '1',
-  }) {
-    if (quantity <= 0) {
-      throw Exception('Quantity must be greater than zero.');
-    }
+  final selectedCategory = findCategory(category);
 
-    if (type != 'Stock In' && type != 'Stock Out') {
-      throw Exception('Invalid stock movement type.');
-    }
+  if (selectedCategory == null || !selectedCategory.active) {
+    throw Exception('Please select a valid active category.');
+  }
 
-    final product = findProduct(productId);
-    if (product == null) throw Exception('Product not found.');
+  if (costPrice < 0 || sellingPrice < 0 || minimumStock < 0) {
+    throw Exception('Prices and minimum stock cannot be negative.');
+  }
 
-    final branch = findBranch(branchId);
-    if (branch == null) throw Exception('Branch not found.');
+  final oldProduct = _products[index];
 
-    final branchStock = product.branchQuantities[branchId] ?? 0;
-    final previousQuantity = product.quantity;
+  _products[index] = _copyProduct(
+    oldProduct,
+    name: name.trim(),
+    category: category,
+    barcode: barcode.trim(),
+    description: description.trim(),
+    costPrice: costPrice,
+    sellingPrice: sellingPrice,
+    unit: unit,
+    minimumStock: minimumStock,
+    supplier: supplier.trim(),
+  );
 
-    if (type == 'Stock Out' && branchStock < quantity) {
-      throw Exception('Not enough stock available at this branch.');
-    }
+  _checkStockAlerts(
+    _products[index],
+    oldProduct.quantity,
+  );
 
-    if (type == 'Stock In') {
-      product.branchQuantities[branchId] = branchStock + quantity;
-      product.quantity += quantity;
-    } else {
-      product.branchQuantities[branchId] = branchStock - quantity;
-      product.quantity -= quantity;
-    }
+  notifyListeners();
+}
 
-    final movement = _createMovement(
+// ============================================================
+// STOCK ALLOCATION
+// ============================================================
+
+void allocateStockToBranch({
+  required String productId,
+  required String branchId,
+  required int quantity,
+}) {
+  if (quantity <= 0) {
+    throw Exception('Quantity must be greater than zero.');
+  }
+
+  final productIndex = _products.indexWhere(
+    (product) => product.id == productId,
+  );
+
+  if (productIndex == -1) {
+    throw Exception('Product not found.');
+  }
+
+  final branchExists = _branches.any(
+    (branch) => branch.id == branchId && branch.active,
+  );
+
+  if (!branchExists) {
+    throw Exception('Branch not found or inactive.');
+  }
+
+  final product = _products[productIndex];
+
+  final updatedBranchQuantities =
+      Map<String, int>.from(product.branchQuantities);
+
+  updatedBranchQuantities[branchId] =
+      (updatedBranchQuantities[branchId] ?? 0) + quantity;
+
+  _products[productIndex] = InventoryProduct(
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    category: product.category,
+    barcode: product.barcode,
+    description: product.description,
+    costPrice: product.costPrice,
+    sellingPrice: product.sellingPrice,
+    unit: product.unit,
+    minimumStock: product.minimumStock,
+    supplier: product.supplier,
+    quantity: product.quantity + quantity,
+    branchQuantities: updatedBranchQuantities,
+  );
+
+  _movements.insert(
+    0,
+    _createMovement(
+      productId: product.id,
+      productName: product.name,
+      type: 'Stock In',
+      quantity: quantity,
+      branchId: branchId,
+    ),
+  );
+
+  notificationCenter.add(
+    title: 'Stock In',
+    message: '$quantity ${product.unit} of ${product.name} allocated.',
+    category: NotificationCategory.stock,
+    action: 'stock',
+    relatedId: product.id,
+  );
+
+  notifyListeners();
+}
+
+// ============================================================
+// STOCK TRANSFER
+// ============================================================
+
+void transferStock({
+  required String productId,
+  required String fromBranchId,
+  required String toBranchId,
+  required int quantity,
+}) {
+  if (quantity <= 0) {
+    throw Exception('Quantity must be greater than zero.');
+  }
+
+  if (fromBranchId == toBranchId) {
+    throw Exception('Source and destination branches must be different.');
+  }
+
+  final productIndex = _products.indexWhere(
+    (product) => product.id == productId,
+  );
+
+  if (productIndex == -1) {
+    throw Exception('Product not found.');
+  }
+
+  final fromBranch = _branches.any(
+    (branch) => branch.id == fromBranchId && branch.active,
+  );
+
+  final toBranch = _branches.any(
+    (branch) => branch.id == toBranchId && branch.active,
+  );
+
+  if (!fromBranch || !toBranch) {
+    throw Exception('Both branches must exist and be active.');
+  }
+
+  final product = _products[productIndex];
+
+  final sourceQuantity =
+      product.branchQuantities[fromBranchId] ?? 0;
+
+  if (sourceQuantity < quantity) {
+    throw Exception('Insufficient stock in the source branch.');
+  }
+
+  final updatedQuantities =
+      Map<String, int>.from(product.branchQuantities);
+
+  updatedQuantities[fromBranchId] = sourceQuantity - quantity;
+
+  updatedQuantities[toBranchId] =
+      (updatedQuantities[toBranchId] ?? 0) + quantity;
+
+  _products[productIndex] = InventoryProduct(
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    category: product.category,
+    barcode: product.barcode,
+    description: product.description,
+    costPrice: product.costPrice,
+    sellingPrice: product.sellingPrice,
+    unit: product.unit,
+    minimumStock: product.minimumStock,
+    supplier: product.supplier,
+    quantity: product.quantity,
+    branchQuantities: updatedQuantities,
+  );
+
+  final transferCode = generateTransferCode();
+  final transferDate = DateTime.now();
+
+  final transferOut = _createMovement(
+    productId: product.id,
+    productName: product.name,
+    type: 'Transfer Out',
+    quantity: quantity,
+    branchId: fromBranchId,
+    transferCode: transferCode,
+    date: transferDate,
+  );
+
+  _movements.insert(0, transferOut);
+
+  final transferIn = _createMovement(
+    productId: product.id,
+    productName: product.name,
+    type: 'Transfer In',
+    quantity: quantity,
+    branchId: toBranchId,
+    transferCode: transferCode,
+    date: transferDate,
+  );
+
+  _movements.insert(0, transferIn);
+
+  notificationCenter.add(
+    title: 'Stock Transfer',
+    message: '$quantity ${product.unit} of ${product.name} transferred.',
+    category: NotificationCategory.stock,
+    action: 'stock',
+    relatedId: product.id,
+  );
+
+  notifyListeners();
+}
+
+// ============================================================
+// MANUAL STOCK IN / OUT
+// ============================================================
+
+void recordStockMovement({
+  required String productId,
+  required String type,
+  required int quantity,
+  String branchId = '1',
+}) {
+  if (quantity <= 0) {
+    throw Exception('Quantity must be greater than zero.');
+  }
+
+  if (type != 'Stock In' && type != 'Stock Out') {
+    throw Exception('Movement type must be Stock In or Stock Out.');
+  }
+
+  final productIndex = _products.indexWhere(
+    (product) => product.id == productId,
+  );
+
+  if (productIndex == -1) {
+    throw Exception('Product not found.');
+  }
+
+  final branchExists = _branches.any(
+    (branch) => branch.id == branchId && branch.active,
+  );
+
+  if (!branchExists) {
+    throw Exception('Branch not found or inactive.');
+  }
+
+  final product = _products[productIndex];
+
+  final branchQuantity =
+      product.branchQuantities[branchId] ?? 0;
+
+  if (type == 'Stock Out' && branchQuantity < quantity) {
+    throw Exception('Insufficient stock in this branch.');
+  }
+
+  final previousQuantity = product.quantity;
+
+  final updatedQuantities =
+      Map<String, int>.from(product.branchQuantities);
+
+  if (type == 'Stock In') {
+    updatedQuantities[branchId] = branchQuantity + quantity;
+  } else {
+    updatedQuantities[branchId] = branchQuantity - quantity;
+  }
+
+  final newTotalQuantity = type == 'Stock In'
+      ? product.quantity + quantity
+      : product.quantity - quantity;
+
+  final updatedProduct = InventoryProduct(
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    category: product.category,
+    barcode: product.barcode,
+    description: product.description,
+    costPrice: product.costPrice,
+    sellingPrice: product.sellingPrice,
+    unit: product.unit,
+    minimumStock: product.minimumStock,
+    supplier: product.supplier,
+    quantity: newTotalQuantity,
+    branchQuantities: updatedQuantities,
+  );
+
+  _products[productIndex] = updatedProduct;
+
+  _movements.insert(
+    0,
+    _createMovement(
       productId: product.id,
       productName: product.name,
       type: type,
       quantity: quantity,
       branchId: branchId,
-    );
+    ),
+  );
 
-    _movements.insert(0, movement);
+  notificationCenter.add(
+    title: type,
+    message: '$quantity ${product.unit} of ${product.name}.',
+    category: NotificationCategory.stock,
+    action: 'stock',
+    relatedId: product.id,
+  );
 
-    notificationCenter.add(
-      title: type,
-      message:
-          '$quantity ${product.unit} of ${product.name} recorded at ${branch.name}. Reference: ${movement.referenceCode}.',
-      category: NotificationCategory.stock,
-      relatedId: movement.referenceCode,
-      action: 'stock',
-    );
+  _checkStockAlerts(updatedProduct, previousQuantity);
 
-    _checkStockAlerts(product, previousQuantity);
+  notifyListeners();
+}
 
-    notifyListeners();
+// ============================================================
+// SALES PROCESSING
+// ============================================================
+
+SaleRecord createSale({
+  required String branchId,
+  required List<SalesCartItem> items,
+  String customerName = '',
+  String customerPhone = '',
+  String paymentMethod = 'Cash',
+  double discount = 0,
+  double tax = 0,
+  double amountPaid = 0,
+}) {
+  final branch = _branches.where(
+    (branch) => branch.id == branchId && branch.active,
+  ).firstOrNull;
+
+  if (branch == null) {
+    throw Exception('Please select a valid active branch.');
   }
 
-  // ==========================================================
-  // SALES PROCESSING
-  // ==========================================================
+  if (items.isEmpty) {
+    throw Exception('Please add at least one product.');
+  }
 
-  SaleRecord createSale({
-    required String branchId,
-    required List<SalesCartItem> items,
-    String customerName = '',
-    String customerPhone = '',
-    String paymentMethod = 'Cash',
-    double discount = 0,
-    double tax = 0,
-    double amountPaid = 0,
-  }) {
-    final branch = findBranch(branchId);
+  if (discount < 0 || tax < 0 || amountPaid < 0) {
+    throw Exception('Discount, tax and payment cannot be negative.');
+  }
 
-    if (branch == null || !branch.active) {
-      throw Exception('Please select an active branch.');
+  // Validate all requested quantities before changing any stock.
+  final requestedQuantities = <String, int>{};
+
+  for (final item in items) {
+    if (item.quantity <= 0) {
+      throw Exception('Sale quantities must be greater than zero.');
     }
 
-    if (items.isEmpty) {
-      throw Exception('Add at least one product to the sale.');
+    requestedQuantities[item.productId] =
+        (requestedQuantities[item.productId] ?? 0) + item.quantity;
+  }
+
+  for (final entry in requestedQuantities.entries) {
+    final product = findProduct(entry.key);
+
+    if (product == null) {
+      throw Exception('A selected product no longer exists.');
     }
 
-    if (discount < 0 || tax < 0 || amountPaid < 0) {
-      throw Exception('Discount, tax and payment cannot be negative.');
-    }
+    final availableQuantity =
+        product.branchQuantities[branchId] ?? 0;
 
-    final requiredQuantities = <String, int>{};
-
-    for (final item in items) {
-      if (item.quantity <= 0 || item.unitPrice < 0) {
-        throw Exception('Invalid product quantity or price.');
-      }
-
-      requiredQuantities[item.productId] =
-          (requiredQuantities[item.productId] ?? 0) + item.quantity;
-    }
-
-    // Validate stock before changing any quantities.
-    for (final entry in requiredQuantities.entries) {
-      final product = findProduct(entry.key);
-
-      if (product == null) {
-        throw Exception('A product in this sale was not found.');
-      }
-
-      final available = product.branchQuantities[branchId] ?? 0;
-
-      if (available < entry.value) {
-        throw Exception(
-          'Not enough ${product.name} stock at ${branch.name}. '
-          'Available: $available',
-        );
-      }
-    }
-
-    final saleItems = <SaleLineItem>[];
-
-    for (final item in items) {
-      final product = findProduct(item.productId)!;
-
-      saleItems.add(
-        SaleLineItem(
-          productId: product.id,
-          productName: product.name,
-          sku: product.sku,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          costPrice: product.costPrice,
-        ),
+    if (availableQuantity < entry.value) {
+      throw Exception(
+        'Insufficient stock for ${product.name}. Available: $availableQuantity.',
       );
     }
+  }
 
-    final subtotal =
-        saleItems.fold(0.0, (sum, item) => sum + item.total);
+  final saleLines = <SaleLineItem>[];
 
-    if (discount > subtotal) {
-      throw Exception('Discount cannot exceed the subtotal.');
-    }
+  for (final item in items) {
+    final product = findProduct(item.productId)!;
 
-    final total = subtotal - discount + tax;
-    final saleDate = DateTime.now();
+    saleLines.add(
+      SaleLineItem(
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        quantity: item.quantity,
+        unitPrice: product.sellingPrice,
+        total: product.sellingPrice * item.quantity,
+      ),
+    );
+  }
 
-    final sale = SaleRecord(
-      invoiceNumber: generateInvoiceCode(),
-      branchId: branchId,
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      paymentMethod: paymentMethod,
-      items: List.unmodifiable(saleItems),
-      subtotal: subtotal,
-      discount: discount,
-      tax: tax,
-      total: total,
-      amountPaid: amountPaid,
-      date: saleDate,
+  final subtotal = saleLines.fold<double>(
+    0,
+    (total, line) => total + line.total,
+  );
+
+  if (discount > subtotal) {
+    throw Exception('Discount cannot exceed the subtotal.');
+  }
+
+  final total = subtotal - discount + tax;
+
+  if (amountPaid > total) {
+    throw Exception('Amount paid cannot exceed the sale total.');
+  }
+
+  final saleDate = DateTime.now();
+
+  final sale = SaleRecord(
+    id: saleDate.microsecondsSinceEpoch.toString(),
+    invoiceNumber: generateInvoiceCode(),
+    branchId: branchId,
+    customerName: customerName.trim(),
+    customerPhone: customerPhone.trim(),
+    items: saleLines,
+    subtotal: subtotal,
+    discount: discount,
+    tax: tax,
+    total: total,
+    amountPaid: amountPaid,
+    balanceDue: total - amountPaid,
+    paymentMethod: paymentMethod,
+    date: saleDate,
+  );
+
+  // Deduct stock only after every item has passed validation.
+  for (final entry in requestedQuantities.entries) {
+    final productIndex = _products.indexWhere(
+      (product) => product.id == entry.key,
     );
 
-    // Deduct stock once per product.
-    for (final entry in requiredQuantities.entries) {
-      final product = findProduct(entry.key)!;
-      final quantity = entry.value;
-      final previousQuantity = product.quantity;
+    final product = _products[productIndex];
+    final previousQuantity = product.quantity;
 
-      product.branchQuantities[branchId] =
-          (product.branchQuantities[branchId] ?? 0) - quantity;
+    final updatedQuantities =
+        Map<String, int>.from(product.branchQuantities);
 
-      product.quantity -= quantity;
+    updatedQuantities[branchId] =
+        (updatedQuantities[branchId] ?? 0) - entry.value;
 
-      final movement = _createMovement(
+    final updatedProduct = InventoryProduct(
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      barcode: product.barcode,
+      description: product.description,
+      costPrice: product.costPrice,
+      sellingPrice: product.sellingPrice,
+      unit: product.unit,
+      minimumStock: product.minimumStock,
+      supplier: product.supplier,
+      quantity: product.quantity - entry.value,
+      branchQuantities: updatedQuantities,
+    );
+
+    _products[productIndex] = updatedProduct;
+
+    _movements.insert(
+      0,
+      _createMovement(
         productId: product.id,
         productName: product.name,
         type: 'Stock Out',
-        quantity: quantity,
+        quantity: entry.value,
         branchId: branchId,
         date: saleDate,
-      );
-
-      _movements.insert(0, movement);
-
-      notificationCenter.add(
-        title: 'Stock Out',
-        message:
-            '$quantity ${product.unit} of ${product.name} sold at ${branch.name}. Reference: ${movement.referenceCode}.',
-        category: NotificationCategory.stock,
-        relatedId: movement.referenceCode,
-        action: 'stock',
-      );
-
-      _checkStockAlerts(product, previousQuantity);
-    }
-
-    _sales.insert(0, sale);
-
-    notificationCenter.add(
-      title: 'New Sale',
-      message:
-          'Sale ${sale.invoiceNumber} completed at ${branch.name}. Total: ${sale.total.toStringAsFixed(2)}.',
-      category: NotificationCategory.sales,
-      relatedId: sale.invoiceNumber,
-      action: 'sale',
-    );
-
-    if (sale.balanceDue > 0) {
-      notificationCenter.add(
-        title: 'Payment Due',
-        message:
-            'Payment of ${sale.balanceDue.toStringAsFixed(2)} is pending for invoice ${sale.invoiceNumber}.',
-        category: NotificationCategory.sales,
-        relatedId: sale.invoiceNumber,
-        action: 'sale',
-      );
-    }
-
-    notifyListeners();
-
-    return sale;
-  }
-
-  // ==========================================================
-  // BRANCH MANAGEMENT
-  // ==========================================================
-
-  void addBranch({
-    required String name,
-    String? code,
-    required String city,
-    required String address,
-    required String phone,
-    required String email,
-    required String manager,
-  }) {
-    final cleanName = name.trim();
-
-    if (cleanName.isEmpty) {
-      throw Exception('Branch name is required.');
-    }
-
-    final cleanCode = code?.trim().isNotEmpty == true
-        ? code!.trim()
-        : generateBranchCode();
-
-    final duplicate = _branches.any(
-      (branch) =>
-          branch.code.trim().toLowerCase() == cleanCode.toLowerCase(),
-    );
-
-    if (duplicate) {
-      throw Exception('This branch code already exists.');
-    }
-
-    _branches.add(
-      InventoryBranch(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: cleanName,
-        code: cleanCode,
-        city: city.trim(),
-        address: address.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        manager: manager.trim(),
-        active: true,
       ),
     );
 
-    notifyListeners();
+    _checkStockAlerts(updatedProduct, previousQuantity);
   }
 
-  void updateBranch({
-    required String id,
-    required String name,
-    required String code,
-    required String city,
-    required String address,
-    required String phone,
-    required String email,
-    required String manager,
-  }) {
-    final index = _branches.indexWhere((branch) => branch.id == id);
+  _sales.insert(0, sale);
 
-    if (index == -1) {
-      throw Exception('Branch not found.');
-    }
+  notificationCenter.add(
+    title: 'New Sale',
+    message: 'Invoice ${sale.invoiceNumber} created successfully.',
+    category: NotificationCategory.sales,
+    action: 'sale',
+    relatedId: sale.id,
+  );
 
-    final cleanName = name.trim();
-    final cleanCode = code.trim();
-
-    if (cleanName.isEmpty || cleanCode.isEmpty) {
-      throw Exception('Branch name and code are required.');
-    }
-
-    final duplicate = _branches.any(
-      (branch) =>
-          branch.code.trim().toLowerCase() == cleanCode.toLowerCase() &&
-          branch.id != id,
+  if (sale.balanceDue > 0) {
+    notificationCenter.add(
+      title: 'Payment Due',
+      message:
+          'An outstanding balance of ${sale.balanceDue.toStringAsFixed(2)} remains.',
+      category: NotificationCategory.sales,
+      action: 'sale',
+      relatedId: sale.id,
     );
+  }
 
-    if (duplicate) {
-      throw Exception('This branch code already exists.');
-    }
+  notifyListeners();
 
-    final oldBranch = _branches[index];
+  return sale;
+}
 
-    _branches[index] = InventoryBranch(
-      id: oldBranch.id,
-      name: cleanName,
-      code: cleanCode,
+// ============================================================
+// BRANCH MANAGEMENT
+// ============================================================
+
+void addBranch({
+  required String name,
+  String? code,
+  required String city,
+  required String address,
+  required String phone,
+  required String email,
+  required String manager,
+}) {
+  if (name.trim().isEmpty) {
+    throw Exception('Branch name is required.');
+  }
+
+  final branchCode = code?.trim().isNotEmpty == true
+      ? code!.trim()
+      : generateBranchCode();
+
+  if (_branches.any(
+    (branch) => branch.code.toLowerCase() == branchCode.toLowerCase(),
+  )) {
+    throw Exception('A branch with this code already exists.');
+  }
+
+  _branches.add(
+    InventoryBranch(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      code: branchCode,
+      name: name.trim(),
       city: city.trim(),
       address: address.trim(),
       phone: phone.trim(),
       email: email.trim(),
       manager: manager.trim(),
-      active: oldBranch.active,
-    );
+      active: true,
+    ),
+  );
 
-    notifyListeners();
+  notifyListeners();
+}
+
+void updateBranch({
+  required String id,
+  required String name,
+  required String code,
+  required String city,
+  required String address,
+  required String phone,
+  required String email,
+  required String manager,
+}) {
+  final index = _branches.indexWhere(
+    (branch) => branch.id == id,
+  );
+
+  if (index == -1) {
+    throw Exception('Branch not found.');
   }
 
-  void toggleBranchStatus(String id) {
-    final index = _branches.indexWhere((branch) => branch.id == id);
-
-    if (index == -1) {
-      throw Exception('Branch not found.');
-    }
-
-    _branches[index].active = !_branches[index].active;
-
-    notifyListeners();
+  if (name.trim().isEmpty || code.trim().isEmpty) {
+    throw Exception('Branch name and code are required.');
   }
+
+  if (_branches.any(
+    (branch) =>
+        branch.id != id &&
+        branch.code.toLowerCase() == code.trim().toLowerCase(),
+  )) {
+    throw Exception('Another branch already uses this code.');
+  }
+
+  final oldBranch = _branches[index];
+
+  _branches[index] = InventoryBranch(
+    id: oldBranch.id,
+    code: code.trim(),
+    name: name.trim(),
+    city: city.trim(),
+    address: address.trim(),
+    phone: phone.trim(),
+    email: email.trim(),
+    manager: manager.trim(),
+    active: oldBranch.active,
+  );
+
+  notifyListeners();
+}
+
+void toggleBranchStatus(String id) {
+  final index = _branches.indexWhere(
+    (branch) => branch.id == id,
+  );
+
+  if (index == -1) {
+    throw Exception('Branch not found.');
+  }
+
+  final branch = _branches[index];
+
+  _branches[index] = InventoryBranch(
+    id: branch.id,
+    code: branch.code,
+    name: branch.name,
+    city: branch.city,
+    address: branch.address,
+    phone: branch.phone,
+    email: branch.email,
+    manager: branch.manager,
+    active: !branch.active,
+  );
+
+  notifyListeners();
 }
 
 // ============================================================
-// SHARED INVENTORY PROVIDER
+// INVENTORY PROVIDER
 // ============================================================
 
 final inventoryProvider =
