@@ -15,6 +15,7 @@ part 'inventory_categories.dart';
 part 'inventory_branches.dart';
 part 'inventory_customers.dart';
 part 'inventory_stock.dart';
+part 'inventory_sales.dart';
 
 // ============================================================
 // INVENTORY DATA
