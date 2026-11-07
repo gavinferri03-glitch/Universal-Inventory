@@ -86,6 +86,73 @@ class InventoryBranch {
   });
 }
 
+
+class SalesCartItem {
+  final String productId;
+  final int quantity;
+  final double unitPrice;
+
+  SalesCartItem({
+    required this.productId,
+    required this.quantity,
+    required this.unitPrice,
+  });
+}
+
+class SaleLineItem {
+  final String productId;
+  final String productName;
+  final String sku;
+  final int quantity;
+  final double unitPrice;
+  final double costPrice;
+
+  SaleLineItem({
+    required this.productId,
+    required this.productName,
+    required this.sku,
+    required this.quantity,
+    required this.unitPrice,
+    required this.costPrice,
+  });
+
+  double get total => quantity * unitPrice;
+}
+
+class SaleRecord {
+  final String invoiceNumber;
+  final String branchId;
+  final String customerName;
+  final String customerPhone;
+  final String paymentMethod;
+  final List<SaleLineItem> items;
+  final double subtotal;
+  final double discount;
+  final double tax;
+  final double total;
+  final double amountPaid;
+  final DateTime date;
+
+  SaleRecord({
+    required this.invoiceNumber,
+    required this.branchId,
+    required this.customerName,
+    required this.customerPhone,
+    required this.paymentMethod,
+    required this.items,
+    required this.subtotal,
+    required this.discount,
+    required this.tax,
+    required this.total,
+    required this.amountPaid,
+    required this.date,
+  });
+
+  double get balanceDue => (total - amountPaid).clamp(0, double.infinity);
+
+  double get change => (amountPaid - total).clamp(0, double.infinity);
+}
+
 class InventoryData extends ChangeNotifier {
   final List<InventoryProduct> _products = [
     InventoryProduct(
