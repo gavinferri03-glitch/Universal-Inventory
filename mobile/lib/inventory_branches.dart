@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryBranches on ChangeNotifier {
+extension InventoryBranches on InventoryData {
   // BRANCH MANAGEMENT
 
   void addBranch({
