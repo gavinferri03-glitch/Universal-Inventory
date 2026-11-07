@@ -1,7 +1,7 @@
 
 part of 'inventory_data.dart';
 
-extension InventoryCustomers on ChangeNotifier {
+extension InventoryCustomers on InventoryData {
   // CUSTOMER MANAGEMENT
 
   void addCustomer({
