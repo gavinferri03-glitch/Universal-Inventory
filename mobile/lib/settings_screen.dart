@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_settings.dart';
 import 'inventory_data.dart';
+import 'business_profile_screen.dart';
 import 'l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -39,7 +40,10 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           Text(
             l10n.generalSettings,
-            style: const TextStyle(color: muted, fontSize: 14),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 22),
 
@@ -48,16 +52,22 @@ class SettingsScreen extends ConsumerWidget {
 
           _sectionTitle(l10n.generalSettings),
 
+          // Company Details
           _tile(
             icon: Icons.business_outlined,
             title: l10n.businessProfile,
             subtitle: l10n.companyDetails,
-            onTap: () => _message(
-              context,
-              'Open Business Profile from the main menu.',
-            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BusinessProfileScreen(),
+                ),
+              );
+            },
           ),
 
+          // Language
           _tile(
             icon: Icons.language_outlined,
             title: l10n.language,
@@ -67,126 +77,178 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _selectLanguage(context, ref),
           ),
 
-          _tile(
-            icon: Icons.palette_outlined,
-            title: l10n.appearance,
-            subtitle: appSettings.themeMode == ThemeMode.dark
-                ? l10n.darkMode
-                : l10n.lightMode,
-            onTap: () => _selectTheme(context, ref, l10n),
+          const SizedBox(height: 25),
+
+          // Expandable Notification Settings
+          Container(
+            margin: const EdgeInsets.only(bottom: 18),
+            decoration: BoxDecoration(
+              color: panel,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF26364D),
+              ),
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                leading: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: blue,
+                ),
+                title: Text(
+                  l10n.notificationSettings,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  l10n.enableAllNotifications,
+                  style: const TextStyle(
+                    color: muted,
+                    fontSize: 11,
+                  ),
+                ),
+                iconColor: blue,
+                collapsedIconColor: muted,
+                childrenPadding:
+                    const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                children: [
+                  _notificationSwitch(
+                    title: l10n.enableAllNotifications,
+                    subtitle: l10n.notificationSettings,
+                    value: notifications.allNotifications,
+                    onChanged: (v) =>
+                        notifications.updateSettings(all: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.lowStockAlerts,
+                    subtitle: l10n.lowStock,
+                    value: notifications.lowStockAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(lowStock: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.outOfStockAlerts,
+                    subtitle: l10n.outOfStock,
+                    value: notifications.outOfStockAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(outOfStock: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.stockAdjustmentAlerts,
+                    subtitle: l10n.stockAdjustmentAlerts,
+                    value: notifications.stockAdjustmentAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(
+                      stockAdjustment: v,
+                    ),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.stockInAlerts,
+                    subtitle: l10n.stockIn,
+                    value: notifications.stockInAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(stockIn: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.stockOutAlerts,
+                    subtitle: l10n.stockOut,
+                    value: notifications.stockOutAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(stockOut: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.transferAlerts,
+                    subtitle: l10n.transferAlerts,
+                    value: notifications.transferAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(transfer: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.newSaleAlerts,
+                    subtitle: l10n.sales,
+                    value: notifications.newSaleAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(newSale: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.paymentDueAlerts,
+                    subtitle: l10n.payment,
+                    value: notifications.paymentDueAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(paymentDue: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.overduePaymentAlerts,
+                    subtitle: l10n.payment,
+                    value: notifications.overduePaymentAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(
+                      overduePayment: v,
+                    ),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.salesReturnAlerts,
+                    subtitle: l10n.salesReturnAlerts,
+                    value: notifications.salesReturnAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(salesReturn: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.supplierAlerts,
+                    subtitle: l10n.suppliers,
+                    value: notifications.supplierAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(supplier: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.userActivityAlerts,
+                    subtitle: l10n.users,
+                    value: notifications.userActivityAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(userActivity: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.backupAlerts,
+                    subtitle: l10n.dataAndBackup,
+                    value: notifications.backupAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(backup: v),
+                  ),
+
+                  _notificationSwitch(
+                    title: l10n.syncAlerts,
+                    subtitle: l10n.syncAlerts,
+                    value: notifications.syncAlerts,
+                    onChanged: (v) =>
+                        notifications.updateSettings(sync: v),
+                  ),
+                ],
+              ),
+            ),
           ),
 
           const SizedBox(height: 25),
 
-          _sectionTitle(l10n.notificationSettings),
-
-          _notificationSwitch(
-            title: l10n.enableAllNotifications,
-            subtitle: l10n.notificationSettings,
-            value: notifications.allNotifications,
-            onChanged: (v) => notifications.updateSettings(all: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.lowStockAlerts,
-            subtitle: l10n.lowStock,
-            value: notifications.lowStockAlerts,
-            onChanged: (v) => notifications.updateSettings(lowStock: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.outOfStockAlerts,
-            subtitle: l10n.outOfStock,
-            value: notifications.outOfStockAlerts,
-            onChanged: (v) => notifications.updateSettings(outOfStock: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.stockAdjustmentAlerts,
-            subtitle: l10n.stockAdjustmentAlerts,
-            value: notifications.stockAdjustmentAlerts,
-            onChanged: (v) => notifications.updateSettings(stockAdjustment: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.stockInAlerts,
-            subtitle: l10n.stockIn,
-            value: notifications.stockInAlerts,
-            onChanged: (v) => notifications.updateSettings(stockIn: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.stockOutAlerts,
-            subtitle: l10n.stockOut,
-            value: notifications.stockOutAlerts,
-            onChanged: (v) => notifications.updateSettings(stockOut: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.transferAlerts,
-            subtitle: l10n.transferAlerts,
-            value: notifications.transferAlerts,
-            onChanged: (v) => notifications.updateSettings(transfer: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.newSaleAlerts,
-            subtitle: l10n.sales,
-            value: notifications.newSaleAlerts,
-            onChanged: (v) => notifications.updateSettings(newSale: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.paymentDueAlerts,
-            subtitle: l10n.payment,
-            value: notifications.paymentDueAlerts,
-            onChanged: (v) => notifications.updateSettings(paymentDue: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.overduePaymentAlerts,
-            subtitle: l10n.payment,
-            value: notifications.overduePaymentAlerts,
-            onChanged: (v) => notifications.updateSettings(overduePayment: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.salesReturnAlerts,
-            subtitle: l10n.salesReturnAlerts,
-            value: notifications.salesReturnAlerts,
-            onChanged: (v) => notifications.updateSettings(salesReturn: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.supplierAlerts,
-            subtitle: l10n.suppliers,
-            value: notifications.supplierAlerts,
-            onChanged: (v) => notifications.updateSettings(supplier: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.userActivityAlerts,
-            subtitle: l10n.users,
-            value: notifications.userActivityAlerts,
-            onChanged: (v) => notifications.updateSettings(userActivity: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.backupAlerts,
-            subtitle: l10n.dataAndBackup,
-            value: notifications.backupAlerts,
-            onChanged: (v) => notifications.updateSettings(backup: v),
-          ),
-
-          _notificationSwitch(
-            title: l10n.syncAlerts,
-            subtitle: l10n.syncAlerts,
-            value: notifications.syncAlerts,
-            onChanged: (v) => notifications.updateSettings(sync: v),
-          ),
-
-          const SizedBox(height: 25),
-
+          // Security
           _sectionTitle(l10n.security),
 
           _tile(
@@ -221,6 +283,7 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
+          // Data and Backup
           _sectionTitle(l10n.dataAndBackup),
 
           _tile(
@@ -229,7 +292,8 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: l10n.backupAlerts,
             onTap: () => _message(
               context,
-              'Backup and restore will be connected after persistent storage is implemented.',
+              'Backup and restore will be connected after '
+              'persistent storage is implemented.',
             ),
           ),
 
@@ -252,6 +316,7 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
+          // About
           _sectionTitle(l10n.about),
 
           _tile(
@@ -267,12 +332,14 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: l10n.privacyPolicy,
             onTap: () => _message(
               context,
-              'Terms and Privacy information will be added before release.',
+              'Terms and Privacy information will be added '
+              'before release.',
             ),
           ),
 
           const SizedBox(height: 25),
 
+          // Logout
           OutlinedButton.icon(
             onPressed: () => _confirmLogout(context, l10n),
             icon: const Icon(
@@ -288,7 +355,9 @@ class SettingsScreen extends ConsumerWidget {
             ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(color: Color(0xFF743B46)),
+              side: const BorderSide(
+                color: Color(0xFF743B46),
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -325,6 +394,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // Profile Card
   Widget _profileCard(
     BuildContext context,
     AppLocalizations l10n,
@@ -334,7 +404,9 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF26364D)),
+        border: Border.all(
+          color: const Color(0xFF26364D),
+        ),
       ),
       child: Row(
         children: [
@@ -366,7 +438,10 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 5),
                 const Text(
                   'admin@example.com',
-                  style: TextStyle(color: muted, fontSize: 12),
+                  style: TextStyle(
+                    color: muted,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 7),
                 Text(
@@ -385,13 +460,17 @@ class SettingsScreen extends ConsumerWidget {
               context,
               'Profile editing requires account integration.',
             ),
-            icon: const Icon(Icons.edit_outlined, color: blue),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: blue,
+            ),
           ),
         ],
       ),
     );
   }
 
+  // Section Heading
   Widget _sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -407,6 +486,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // General Settings Tile
   Widget _tile({
     required IconData icon,
     required String title,
@@ -418,7 +498,9 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF26364D)),
+        border: Border.all(
+          color: const Color(0xFF26364D),
+        ),
       ),
       child: ListTile(
         onTap: onTap,
@@ -426,7 +508,11 @@ class SettingsScreen extends ConsumerWidget {
           horizontal: 15,
           vertical: 5,
         ),
-        leading: Icon(icon, color: blue, size: 23),
+        leading: Icon(
+          icon,
+          color: blue,
+          size: 23,
+        ),
         title: Text(
           title,
           style: const TextStyle(
@@ -438,7 +524,10 @@ class SettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             subtitle,
-            style: const TextStyle(color: muted, fontSize: 11),
+            style: const TextStyle(
+              color: muted,
+              fontSize: 11,
+            ),
           ),
         ),
         trailing: const Icon(
@@ -449,6 +538,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // Individual Notification Switch
   Widget _notificationSwitch({
     required String title,
     required String subtitle,
@@ -460,7 +550,9 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF26364D)),
+        border: Border.all(
+          color: const Color(0xFF26364D),
+        ),
       ),
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(
@@ -481,7 +573,10 @@ class SettingsScreen extends ConsumerWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(color: muted, fontSize: 11),
+          style: const TextStyle(
+            color: muted,
+            fontSize: 11,
+          ),
         ),
         value: value,
         activeThumbColor: green,
@@ -490,6 +585,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // Language Selection
   Future<void> _selectLanguage(
     BuildContext context,
     WidgetRef ref,
@@ -519,7 +615,10 @@ class SettingsScreen extends ConsumerWidget {
                 return ListTile(
                   title: Text(entry.value),
                   trailing: settings.languageCode == entry.key
-                      ? const Icon(Icons.check, color: blue)
+                      ? const Icon(
+                          Icons.check,
+                          color: blue,
+                        )
                       : null,
                   onTap: () {
                     settings.setLanguage(entry.key);
@@ -534,50 +633,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _selectTheme(
-    BuildContext context,
-    WidgetRef ref,
-    AppLocalizations l10n,
-  ) async {
-    final settings = ref.read(appSettingsProvider);
-
-    await showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.appearance),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<ThemeMode>(
-                title: Text(l10n.darkMode),
-                value: ThemeMode.dark,
-                groupValue: settings.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    settings.setTheme(value);
-                    Navigator.pop(dialogContext);
-                  }
-                },
-              ),
-              RadioListTile<ThemeMode>(
-                title: Text(l10n.lightMode),
-                value: ThemeMode.light,
-                groupValue: settings.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    settings.setTheme(value);
-                    Navigator.pop(dialogContext);
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
+  // Storage Information
   void _showStorageInfo(
     BuildContext context,
     AppLocalizations l10n,
@@ -586,11 +642,12 @@ class SettingsScreen extends ConsumerWidget {
       context,
       l10n.dataAndBackup,
       'Your current inventory data is held in application memory. '
-          'It may reset when the app is restarted. Persistent database '
-          'storage will be added before backup and restore are enabled.',
+      'It may reset when the app is restarted. Persistent database '
+      'storage will be added before backup and restore are enabled.',
     );
   }
 
+  // About
   void _about(
     BuildContext context,
     AppLocalizations l10n,
@@ -599,12 +656,13 @@ class SettingsScreen extends ConsumerWidget {
       context,
       l10n.about,
       '${l10n.appTitle}\n\n'
-          'Version 0.1.0\n\n'
-          'A flexible inventory management platform designed to manage '
-          'products, stock movements, suppliers, sales and multiple branches.',
+      'Version 0.1.0\n\n'
+      'A flexible inventory management platform designed to manage '
+      'products, stock movements, suppliers, sales and multiple branches.',
     );
   }
 
+  // Information
   void _showInfo(
     BuildContext context,
     AppLocalizations l10n,
@@ -616,6 +674,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // Logout Confirmation
   void _confirmLogout(
     BuildContext context,
     AppLocalizations l10n,
@@ -641,7 +700,9 @@ class SettingsScreen extends ConsumerWidget {
               },
               child: Text(
                 l10n.logout,
-                style: const TextStyle(color: Color(0xFFFF6B6B)),
+                style: const TextStyle(
+                  color: Color(0xFFFF6B6B),
+                ),
               ),
             ),
           ],
@@ -650,6 +711,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // Reusable Dialog
   void _dialog(
     BuildContext context,
     String title,
@@ -663,16 +725,24 @@ class SettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppLocalizations.of(context)!.close),
+            child: Text(
+              AppLocalizations.of(context)!.close,
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _message(BuildContext context, String message) {
+  // Message
+  void _message(
+    BuildContext context,
+    String message,
+  ) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+      ),
     );
   }
 }
