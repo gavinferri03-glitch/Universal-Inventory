@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_settings.dart';
 import 'inventory_data.dart';
+import 'l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -15,19 +16,20 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final appSettings = ref.watch(appSettingsProvider);
     final inventory = ref.watch(inventoryProvider);
     final notifications = inventory.notificationCenter;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Settings',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          l10n.settings,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            onPressed: () => _showInfo(context),
+            onPressed: () => _showInfo(context, l10n),
             icon: const Icon(Icons.info_outline),
           ),
         ],
@@ -35,23 +37,21 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
         children: [
-          const Text(
-            'Manage your application preferences',
-            style: TextStyle(color: muted, fontSize: 14),
+          Text(
+            l10n.generalSettings,
+            style: const TextStyle(color: muted, fontSize: 14),
           ),
           const SizedBox(height: 22),
 
-          // ACCOUNT
-
-          _profileCard(context),
+          _profileCard(context, l10n),
           const SizedBox(height: 28),
 
-          _sectionTitle('GENERAL'),
+          _sectionTitle(l10n.generalSettings),
 
           _tile(
             icon: Icons.business_outlined,
-            title: 'Business Information',
-            subtitle: 'Manage your business details',
+            title: l10n.businessProfile,
+            subtitle: l10n.companyDetails,
             onTap: () => _message(
               context,
               'Open Business Profile from the main menu.',
@@ -60,7 +60,7 @@ class SettingsScreen extends ConsumerWidget {
 
           _tile(
             icon: Icons.language_outlined,
-            title: 'Language',
+            title: l10n.language,
             subtitle: AppSettings.supportedLanguages[
                     appSettings.languageCode] ??
                 'English',
@@ -69,134 +69,132 @@ class SettingsScreen extends ConsumerWidget {
 
           _tile(
             icon: Icons.palette_outlined,
-            title: 'Appearance',
+            title: l10n.appearance,
             subtitle: appSettings.themeMode == ThemeMode.dark
-                ? 'Dark theme'
-                : 'Light theme',
-            onTap: () => _selectTheme(context, ref),
+                ? l10n.darkMode
+                : l10n.lightMode,
+            onTap: () => _selectTheme(context, ref, l10n),
           ),
 
           const SizedBox(height: 25),
 
-          // NOTIFICATIONS
-
-          _sectionTitle('NOTIFICATIONS'),
+          _sectionTitle(l10n.notificationSettings),
 
           _notificationSwitch(
-            title: 'All Notifications',
-            subtitle: 'Enable or disable all notifications',
+            title: l10n.enableAllNotifications,
+            subtitle: l10n.notificationSettings,
             value: notifications.allNotifications,
             onChanged: (v) =>
                 notifications.updateSettings(all: v),
           ),
 
           _notificationSwitch(
-            title: 'Low Stock Alerts',
-            subtitle: 'When product stock reaches its minimum level',
+            title: l10n.lowStockAlerts,
+            subtitle: l10n.lowStock,
             value: notifications.lowStockAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(lowStock: v),
           ),
 
           _notificationSwitch(
-            title: 'Out of Stock Alerts',
-            subtitle: 'When a product runs out of stock',
+            title: l10n.outOfStockAlerts,
+            subtitle: l10n.outOfStock,
             value: notifications.outOfStockAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(outOfStock: v),
           ),
 
           _notificationSwitch(
-            title: 'Stock Adjustment Alerts',
-            subtitle: 'When inventory quantities are adjusted',
+            title: l10n.stockAdjustmentAlerts,
+            subtitle: l10n.adjustments,
             value: notifications.stockAdjustmentAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(stockAdjustment: v),
           ),
 
           _notificationSwitch(
-            title: 'Stock In Alerts',
-            subtitle: 'When stock is added',
+            title: l10n.stockInAlerts,
+            subtitle: l10n.stockIn,
             value: notifications.stockInAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(stockIn: v),
           ),
 
           _notificationSwitch(
-            title: 'Stock Out Alerts',
-            subtitle: 'When stock is removed',
+            title: l10n.stockOutAlerts,
+            subtitle: l10n.stockOut,
             value: notifications.stockOutAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(stockOut: v),
           ),
 
           _notificationSwitch(
-            title: 'Branch Transfer Alerts',
-            subtitle: 'When stock is transferred between branches',
+            title: l10n.transferAlerts,
+            subtitle: l10n.transfers,
             value: notifications.transferAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(transfer: v),
           ),
 
           _notificationSwitch(
-            title: 'New Sale Alerts',
-            subtitle: 'When a new sale is recorded',
+            title: l10n.newSaleAlerts,
+            subtitle: l10n.sales,
             value: notifications.newSaleAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(newSale: v),
           ),
 
           _notificationSwitch(
-            title: 'Payment Due Alerts',
-            subtitle: 'When a customer payment is due',
+            title: l10n.paymentDueAlerts,
+            subtitle: l10n.payment,
             value: notifications.paymentDueAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(paymentDue: v),
           ),
 
           _notificationSwitch(
-            title: 'Overdue Payment Alerts',
-            subtitle: 'When a payment becomes overdue',
+            title: l10n.overduePaymentAlerts,
+            subtitle: l10n.payment,
             value: notifications.overduePaymentAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(overduePayment: v),
           ),
 
           _notificationSwitch(
-            title: 'Sales Return Alerts',
-            subtitle: 'When a sale is returned',
+            title: l10n.salesReturnAlerts,
+            subtitle: l10n.returns,
             value: notifications.salesReturnAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(salesReturn: v),
           ),
 
           _notificationSwitch(
-            title: 'Supplier Alerts',
-            subtitle: 'Updates related to suppliers',
+            title: l10n.supplierAlerts,
+            subtitle: l10n.suppliers,
             value: notifications.supplierAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(supplier: v),
           ),
 
           _notificationSwitch(
-            title: 'User Activity Alerts',
-            subtitle: 'Updates about user activity',
+            title: l10n.userActivityAlerts,
+            subtitle: l10n.users,
             value: notifications.userActivityAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(userActivity: v),
           ),
 
           _notificationSwitch(
-            title: 'Backup Alerts',
-            subtitle: 'Backup reminders and updates',
+            title: l10n.backupAlerts,
+            subtitle: l10n.dataAndBackup,
             value: notifications.backupAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(backup: v),
           ),
 
           _notificationSwitch(
-            title: 'Sync Alerts',
-            subtitle: 'Data synchronization updates',
+            title: l10n.syncAlerts,
+            subtitle: l10n.syncAlerts,
             value: notifications.syncAlerts,
             onChanged: (v) =>
                 notifications.updateSettings(sync: v),
@@ -204,14 +202,12 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
-          // SECURITY
-
-          _sectionTitle('SECURITY'),
+          _sectionTitle(l10n.security),
 
           _tile(
             icon: Icons.lock_outline,
             title: 'Change Password',
-            subtitle: 'Update your account password',
+            subtitle: l10n.security,
             onTap: () => _message(
               context,
               'Password changes require account authentication.',
@@ -240,14 +236,12 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
-          // DATA AND SYSTEM
-
-          _sectionTitle('DATA & SYSTEM'),
+          _sectionTitle(l10n.dataAndBackup),
 
           _tile(
             icon: Icons.backup_outlined,
-            title: 'Backup & Restore',
-            subtitle: 'Manage inventory backups',
+            title: l10n.dataAndBackup,
+            subtitle: l10n.backupAlerts,
             onTap: () => _message(
               context,
               'Backup and restore will be connected after persistent storage is implemented.',
@@ -257,14 +251,14 @@ class SettingsScreen extends ConsumerWidget {
           _tile(
             icon: Icons.storage_outlined,
             title: 'Storage & Data',
-            subtitle: 'Manage application data',
-            onTap: () => _showStorageInfo(context),
+            subtitle: l10n.dataAndBackup,
+            onTap: () => _showStorageInfo(context, l10n),
           ),
 
           _tile(
             icon: Icons.sync_outlined,
-            title: 'Sync Settings',
-            subtitle: 'Configure data synchronization',
+            title: l10n.syncAlerts,
+            subtitle: l10n.dataAndBackup,
             onTap: () => _message(
               context,
               'Cloud synchronization requires a backend server.',
@@ -273,21 +267,19 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
-          // ABOUT
-
-          _sectionTitle('ABOUT'),
+          _sectionTitle(l10n.about),
 
           _tile(
             icon: Icons.info_outline,
-            title: 'About Universal Inventory',
-            subtitle: 'Application information',
-            onTap: () => _about(context),
+            title: l10n.about,
+            subtitle: l10n.appTitle,
+            onTap: () => _about(context, l10n),
           ),
 
           _tile(
             icon: Icons.description_outlined,
-            title: 'Terms & Privacy',
-            subtitle: 'Terms and privacy information',
+            title: l10n.termsAndConditions,
+            subtitle: l10n.privacyPolicy,
             onTap: () => _message(
               context,
               'Terms and Privacy information will be added before release.',
@@ -297,14 +289,14 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 25),
 
           OutlinedButton.icon(
-            onPressed: () => _confirmLogout(context),
+            onPressed: () => _confirmLogout(context, l10n),
             icon: const Icon(
               Icons.logout,
               color: Color(0xFFFF6B6B),
             ),
-            label: const Text(
-              'Log Out',
-              style: TextStyle(
+            label: Text(
+              l10n.logout,
+              style: const TextStyle(
                 color: Color(0xFFFF6B6B),
                 fontWeight: FontWeight.bold,
               ),
@@ -320,20 +312,20 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 25),
 
-          const Center(
+          Center(
             child: Column(
               children: [
                 Text(
-                  'UNIVERSAL INVENTORY',
-                  style: TextStyle(
+                  l10n.appTitle.toUpperCase(),
+                  style: const TextStyle(
                     color: muted,
                     fontSize: 11,
                     letterSpacing: 2,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 6),
+                const Text(
                   'Version 0.1.0',
                   style: TextStyle(
                     color: Color(0xFF52647D),
@@ -348,7 +340,10 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _profileCard(BuildContext context) {
+  Widget _profileCard(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -372,26 +367,26 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 15),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Administrator',
-                  style: TextStyle(
+                  l10n.administrator,
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 5),
-                Text(
+                const SizedBox(height: 5),
+                const Text(
                   'admin@example.com',
                   style: TextStyle(color: muted, fontSize: 12),
                 ),
-                SizedBox(height: 7),
+                const SizedBox(height: 7),
                 Text(
-                  'Administrator Account',
-                  style: TextStyle(
+                  l10n.administrator,
+                  style: const TextStyle(
                     color: green,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -515,6 +510,7 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
   ) async {
     final settings = ref.read(appSettingsProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     await showModalBottomSheet(
       context: context,
@@ -524,11 +520,11 @@ class SettingsScreen extends ConsumerWidget {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(18),
+              Padding(
+                padding: const EdgeInsets.all(18),
                 child: Text(
-                  'Select Language',
-                  style: TextStyle(
+                  l10n.selectLanguage,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -556,6 +552,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _selectTheme(
     BuildContext context,
     WidgetRef ref,
+    AppLocalizations l10n,
   ) async {
     final settings = ref.read(appSettingsProvider);
 
@@ -563,12 +560,12 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Choose Appearance'),
+          title: Text(l10n.appearance),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<ThemeMode>(
-                title: const Text('Dark'),
+                title: Text(l10n.darkMode),
                 value: ThemeMode.dark,
                 groupValue: settings.themeMode,
                 onChanged: (value) {
@@ -579,7 +576,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               RadioListTile<ThemeMode>(
-                title: const Text('Light'),
+                title: Text(l10n.lightMode),
                 value: ThemeMode.light,
                 groupValue: settings.themeMode,
                 onChanged: (value) {
@@ -596,48 +593,58 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showStorageInfo(BuildContext context) {
+  void _showStorageInfo(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     _dialog(
       context,
-      'Storage & Data',
+      l10n.dataAndBackup,
       'Your current inventory data is held in application memory. '
           'It may reset when the app is restarted. Persistent database '
           'storage will be added before backup and restore are enabled.',
     );
   }
 
-  void _about(BuildContext context) {
+  void _about(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     _dialog(
       context,
-      'Universal Inventory',
-      'Version 0.1.0\n\n'
+      l10n.about,
+      '${l10n.appTitle}\n\n'
+          'Version 0.1.0\n\n'
           'A flexible inventory management platform designed to manage '
           'products, stock movements, suppliers, sales and multiple branches.',
     );
   }
 
-  void _showInfo(BuildContext context) {
+  void _showInfo(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     _dialog(
       context,
-      'Settings',
-      'Manage your account, business preferences, notifications, '
-          'security and application settings here.',
+      l10n.settings,
+      l10n.generalSettings,
     );
   }
 
-  void _confirmLogout(BuildContext context) {
+  void _confirmLogout(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Log Out?'),
-          content: const Text(
-            'Are you sure you want to log out of Universal Inventory?',
-          ),
+          title: Text('${l10n.logout}?'),
+          content: Text(l10n.confirm),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () {
@@ -647,9 +654,9 @@ class SettingsScreen extends ConsumerWidget {
                   'Logout requires account authentication.',
                 );
               },
-              child: const Text(
-                'Log Out',
-                style: TextStyle(color: Color(0xFFFF6B6B)),
+              child: Text(
+                l10n.logout,
+                style: const TextStyle(color: Color(0xFFFF6B6B)),
               ),
             ),
           ],
@@ -658,7 +665,11 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _dialog(BuildContext context, String title, String message) {
+  void _dialog(
+    BuildContext context,
+    String title,
+    String message,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -667,7 +678,7 @@ class SettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.close),
           ),
         ],
       ),
