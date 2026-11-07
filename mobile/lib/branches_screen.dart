@@ -1,67 +1,36 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'inventory_data.dart';
 
-class BranchesScreen extends StatefulWidget {
+class BranchesScreen extends ConsumerStatefulWidget {
   const BranchesScreen({super.key});
 
   @override
-  State<BranchesScreen> createState() => _BranchesScreenState();
+  ConsumerState<BranchesScreen> createState() => _BranchesScreenState();
 }
 
-class _BranchesScreenState extends State<BranchesScreen> {
+class _BranchesScreenState extends ConsumerState<BranchesScreen> {
   final Color blue = const Color(0xFF5798FF);
   final Color panel = const Color(0xFF121D2D);
   final Color muted = const Color(0xFF91A4BE);
 
   final TextEditingController searchController = TextEditingController();
-
-  final List<Map<String, dynamic>> branches = [
-    {
-      'name': 'Main Branch',
-      'code': 'BR-001',
-      'city': 'Kathmandu',
-      'address': 'New Road, Kathmandu',
-      'phone': '9800000001',
-      'email': 'kathmandu@example.com',
-      'manager': 'Branch Manager',
-      'active': true,
-    },
-    {
-      'name': 'Pokhara Branch',
-      'code': 'BR-002',
-      'city': 'Pokhara',
-      'address': 'Lakeside, Pokhara',
-      'phone': '9800000002',
-      'email': 'pokhara@example.com',
-      'manager': 'Branch Manager',
-      'active': true,
-    },
-    {
-      'name': 'Lalitpur Branch',
-      'code': 'BR-003',
-      'city': 'Lalitpur',
-      'address': 'Jawalakhel, Lalitpur',
-      'phone': '9800000003',
-      'email': 'lalitpur@example.com',
-      'manager': 'Branch Manager',
-      'active': false,
-    },
-  ];
-
   String filter = 'All';
 
-  List<Map<String, dynamic>> get filteredBranches {
-    return branches.where((branch) {
-      final query = searchController.text.toLowerCase();
+  List<InventoryBranch> get filteredBranches {
+    final branches = ref.read(inventoryProvider).branches;
+    final query = searchController.text.toLowerCase();
 
+    return branches.where((branch) {
       final matchesSearch =
-          branch['name'].toString().toLowerCase().contains(query) ||
-          branch['code'].toString().toLowerCase().contains(query) ||
-          branch['city'].toString().toLowerCase().contains(query);
+          branch.name.toLowerCase().contains(query) ||
+          branch.code.toLowerCase().contains(query) ||
+          branch.city.toLowerCase().contains(query);
 
       final matchesFilter = filter == 'All' ||
-          (filter == 'Active' && branch['active'] == true) ||
-          (filter == 'Inactive' && branch['active'] == false);
+          (filter == 'Active' && branch.active) ||
+          (filter == 'Inactive' && !branch.active);
 
       return matchesSearch && matchesFilter;
     }).toList();
@@ -73,21 +42,14 @@ class _BranchesScreenState extends State<BranchesScreen> {
     super.dispose();
   }
 
-  void showBranchForm({Map<String, dynamic>? branch}) {
-    final nameController =
-        TextEditingController(text: branch?['name'] ?? '');
-    final codeController =
-        TextEditingController(text: branch?['code'] ?? '');
-    final cityController =
-        TextEditingController(text: branch?['city'] ?? '');
-    final addressController =
-        TextEditingController(text: branch?['address'] ?? '');
-    final phoneController =
-        TextEditingController(text: branch?['phone'] ?? '');
-    final emailController =
-        TextEditingController(text: branch?['email'] ?? '');
-    final managerController =
-        TextEditingController(text: branch?['manager'] ?? '');
+  void showBranchForm({InventoryBranch? branch}) {
+    final nameController = TextEditingController(text: branch?.name ?? '');
+    final codeController = TextEditingController(text: branch?.code ?? '');
+    final cityController = TextEditingController(text: branch?.city ?? '');
+    final addressController = TextEditingController(text: branch?.address ?? '');
+    final phoneController = TextEditingController(text: branch?.phone ?? '');
+    final emailController = TextEditingController(text: branch?.email ?? '');
+    final managerController = TextEditingController(text: branch?.manager ?? '');
 
     showDialog(
       context: context,
@@ -126,9 +88,11 @@ class _BranchesScreenState extends State<BranchesScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                if (nameController.text.trim().isEmpty ||
-                    codeController.text.trim().isEmpty ||
-                    cityController.text.trim().isEmpty) {
+                final name = nameController.text.trim();
+                final code = codeController.text.trim();
+                final city = cityController.text.trim();
+
+                if (name.isEmpty || code.isEmpty || city.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Please fill all required fields.'),
@@ -137,51 +101,52 @@ class _BranchesScreenState extends State<BranchesScreen> {
                   return;
                 }
 
-                final code = codeController.text.trim().toLowerCase();
-
-                final duplicate = branches.any((item) =>
-                    item['code'].toString().toLowerCase() == code &&
-                    item != branch);
-
-                if (duplicate) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('This branch code already exists.'),
-                    ),
-                  );
-                  return;
-                }
-
-                setState(() {
-                  final data = {
-                    'name': nameController.text.trim(),
-                    'code': codeController.text.trim(),
-                    'city': cityController.text.trim(),
-                    'address': addressController.text.trim(),
-                    'phone': phoneController.text.trim(),
-                    'email': emailController.text.trim(),
-                    'manager': managerController.text.trim(),
-                    'active': branch?['active'] ?? true,
-                  };
+                try {
+                  final inventory = ref.read(inventoryProvider);
 
                   if (branch == null) {
-                    branches.add(data);
+                    inventory.addBranch(
+                      name: name,
+                      code: code,
+                      city: city,
+                      address: addressController.text.trim(),
+                      phone: phoneController.text.trim(),
+                      email: emailController.text.trim(),
+                      manager: managerController.text.trim(),
+                    );
                   } else {
-                    final index = branches.indexOf(branch);
-                    branches[index] = data;
+                    inventory.updateBranch(
+                      id: branch.id,
+                      name: name,
+                      code: code,
+                      city: city,
+                      address: addressController.text.trim(),
+                      phone: phoneController.text.trim(),
+                      email: emailController.text.trim(),
+                      manager: managerController.text.trim(),
+                    );
                   }
-                });
 
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      branch == null
-                          ? 'Branch added successfully.'
-                          : 'Branch updated successfully.',
+                  Navigator.pop(dialogContext);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        branch == null
+                            ? 'Branch added successfully.'
+                            : 'Branch updated successfully.',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        error.toString().replaceFirst('Exception: ', ''),
+                      ),
+                    ),
+                  );
+                }
               },
               child: const Text('Save Branch'),
             ),
@@ -191,10 +156,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
     );
   }
 
-  Widget _formField(
-    TextEditingController controller,
-    String label,
-  ) {
+  Widget _formField(TextEditingController controller, String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
@@ -213,7 +175,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
     );
   }
 
-  void showBranchDetails(Map<String, dynamic> branch) {
+  void showBranchDetails(InventoryBranch branch) {
     showModalBottomSheet(
       context: context,
       backgroundColor: panel,
@@ -229,7 +191,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                branch['name'],
+                branch.name,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -237,17 +199,14 @@ class _BranchesScreenState extends State<BranchesScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(branch['code'], style: TextStyle(color: muted)),
+              Text(branch.code, style: TextStyle(color: muted)),
               const SizedBox(height: 20),
-              _detailRow('City', branch['city']),
-              _detailRow('Address', branch['address']),
-              _detailRow('Phone', branch['phone']),
-              _detailRow('Email', branch['email']),
-              _detailRow('Manager', branch['manager']),
-              _detailRow(
-                'Status',
-                branch['active'] ? 'Active' : 'Inactive',
-              ),
+              _detailRow('City', branch.city),
+              _detailRow('Address', branch.address),
+              _detailRow('Phone', branch.phone),
+              _detailRow('Email', branch.email),
+              _detailRow('Manager', branch.manager),
+              _detailRow('Status', branch.active ? 'Active' : 'Inactive'),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -268,13 +227,13 @@ class _BranchesScreenState extends State<BranchesScreen> {
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () {
-                        setState(() {
-                          branch['active'] = !branch['active'];
-                        });
+                        ref.read(inventoryProvider).toggleBranchStatus(
+                              branch.id,
+                            );
                         Navigator.pop(sheetContext);
                       },
                       child: Text(
-                        branch['active'] ? 'Deactivate' : 'Activate',
+                        branch.active ? 'Deactivate' : 'Activate',
                       ),
                     ),
                   ),
@@ -300,7 +259,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
           ),
           Expanded(
             child: Text(
-              value.toString().isEmpty ? '-' : value.toString(),
+              value.isEmpty ? '-' : value,
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -309,10 +268,38 @@ class _BranchesScreenState extends State<BranchesScreen> {
     );
   }
 
+  Widget _summaryCard(String title, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: blue, size: 22),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 23,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(title, style: TextStyle(color: muted, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeCount =
-        branches.where((branch) => branch['active'] == true).length;
+    final inventory = ref.watch(inventoryProvider);
+    final branches = inventory.branches;
+    final visibleBranches = filteredBranches;
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
@@ -346,7 +333,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
                   Expanded(
                     child: _summaryCard(
                       'Active Branches',
-                      activeCount.toString(),
+                      inventory.activeBranchCount.toString(),
                       Icons.check_circle_outline,
                     ),
                   ),
@@ -397,7 +384,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: filteredBranches.isEmpty
+              child: visibleBranches.isEmpty
                   ? Center(
                       child: Text(
                         'No branches found.',
@@ -406,10 +393,9 @@ class _BranchesScreenState extends State<BranchesScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                      itemCount: filteredBranches.length,
+                      itemCount: visibleBranches.length,
                       itemBuilder: (context, index) {
-                        final branch = filteredBranches[index];
-                        final active = branch['active'] == true;
+                        final branch = visibleBranches[index];
 
                         return Card(
                           color: panel,
@@ -422,13 +408,10 @@ class _BranchesScreenState extends State<BranchesScreen> {
                             onTap: () => showBranchDetails(branch),
                             leading: CircleAvatar(
                               backgroundColor: blue.withValues(alpha: 0.15),
-                              child: Icon(
-                                Icons.store,
-                                color: blue,
-                              ),
+                              child: Icon(Icons.store, color: blue),
                             ),
                             title: Text(
-                              branch['name'],
+                              branch.name,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -437,7 +420,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
-                                '${branch['code']} • ${branch['city']}',
+                                '${branch.code} • ${branch.city}',
                                 style: TextStyle(color: muted),
                               ),
                             ),
@@ -447,16 +430,16 @@ class _BranchesScreenState extends State<BranchesScreen> {
                                 Icon(
                                   Icons.circle,
                                   size: 10,
-                                  color: active
+                                  color: branch.active
                                       ? Colors.greenAccent
                                       : Colors.redAccent,
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
-                                  active ? 'Active' : 'Inactive',
+                                  branch.active ? 'Active' : 'Inactive',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: active
+                                    color: branch.active
                                         ? Colors.greenAccent
                                         : Colors.redAccent,
                                   ),
@@ -470,36 +453,6 @@ class _BranchesScreenState extends State<BranchesScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _summaryCard(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: blue, size: 22),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(color: muted, fontSize: 12),
-          ),
-        ],
       ),
     );
   }
