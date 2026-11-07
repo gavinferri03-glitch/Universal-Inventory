@@ -1,8 +1,9 @@
-
 part of 'inventory_data.dart';
 
-extension InventoryCategories on InventoryData{
-  // CATEGORY MANAGEMENT
+extension InventoryCategories on InventoryData {
+  // ==========================================================
+  // ADD CATEGORY
+  // ==========================================================
 
   void addCategory({
     required String name,
@@ -14,13 +15,13 @@ extension InventoryCategories on InventoryData{
     }
 
     if (_categories.any(
-      (e) => e.name.toLowerCase() == name.trim().toLowerCase(),
+      (item) => item.name.toLowerCase() == name.trim().toLowerCase(),
     )) {
       throw Exception('Category name already exists.');
     }
 
     if (_categories.any(
-      (e) => e.code.toLowerCase() == code.trim().toLowerCase(),
+      (item) => item.code.toLowerCase() == code.trim().toLowerCase(),
     )) {
       throw Exception('Category code already exists.');
     }
@@ -38,6 +39,10 @@ extension InventoryCategories on InventoryData{
     notifyListeners();
   }
 
+  // ==========================================================
+  // UPDATE CATEGORY
+  // ==========================================================
+
   void updateCategory({
     required String categoryId,
     required String name,
@@ -54,9 +59,9 @@ extension InventoryCategories on InventoryData{
     }
 
     if (_categories.any(
-      (e) =>
-          e.id != categoryId &&
-          e.name.toLowerCase() == name.trim().toLowerCase(),
+      (item) =>
+          item.id != categoryId &&
+          item.name.toLowerCase() == name.trim().toLowerCase(),
     )) {
       throw Exception('Category name already exists.');
     }
@@ -67,19 +72,30 @@ extension InventoryCategories on InventoryData{
     notifyListeners();
   }
 
+  // ==========================================================
+  // CATEGORY SUMMARY
+  // ==========================================================
+
   int get activeCategoryCount =>
-      _categories.where((e) => e.active).length;
+      _categories.where((item) => item.active).length;
 
   int getCategoryProductCount(String categoryId) {
     final category = getCategoryById(categoryId);
+
     if (category == null) return 0;
 
     return _products
         .where(
-          (e) => e.category.toLowerCase() == category.name.toLowerCase(),
+          (item) =>
+              item.category.toLowerCase() ==
+              category.name.toLowerCase(),
         )
         .length;
   }
+
+  // ==========================================================
+  // DELETE CATEGORY
+  // ==========================================================
 
   void deleteCategory(String categoryId) {
     final category = getCategoryById(categoryId);
@@ -89,14 +105,21 @@ extension InventoryCategories on InventoryData{
     }
 
     if (_products.any(
-      (e) => e.category.toLowerCase() == category.name.toLowerCase(),
+      (item) =>
+          item.category.toLowerCase() ==
+          category.name.toLowerCase(),
     )) {
       throw Exception('Cannot delete a category containing products.');
     }
 
-    _categories.removeWhere((e) => e.id == categoryId);
+    _categories.removeWhere((item) => item.id == categoryId);
+
     notifyListeners();
   }
+
+  // ==========================================================
+  // CATEGORY STATUS
+  // ==========================================================
 
   void toggleCategoryStatus(String categoryId) {
     final category = getCategoryById(categoryId);
@@ -106,6 +129,7 @@ extension InventoryCategories on InventoryData{
     }
 
     category.active = !category.active;
+
     notifyListeners();
   }
 }
