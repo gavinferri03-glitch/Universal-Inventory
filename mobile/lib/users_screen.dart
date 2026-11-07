@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'inventory_data.dart';
+import 'list_tools.dart';
 
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -44,8 +45,6 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     },
   ];
 
-  String filter = 'All';
-
   final List<String> roles = [
     'Administrator',
     'Manager',
@@ -55,27 +54,170 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     'Stock Manager',
   ];
 
+  String searchText = '';
+  String selectedSort = 'name_az';
+  String selectedFilter = 'all';
+
+  final Map<String, String> sortOptions = {
+    'name_az': 'Name: A–Z',
+    'name_za': 'Name: Z–A',
+    'role_az': 'Role: A–Z',
+    'role_za': 'Role: Z–A',
+    'branch_az': 'Branch: A–Z',
+    'branch_za': 'Branch: Z–A',
+    'newest': 'Newest first',
+    'oldest': 'Oldest first',
+  };
+
+  final Map<String, String> filterOptions = {
+    'all': 'All users',
+    'active': 'Active users',
+    'inactive': 'Inactive users',
+    'administrator': 'Administrators',
+    'manager': 'Managers',
+    'staff': 'Staff',
+    'accountant': 'Accountants',
+    'salesperson': 'Salespersons',
+    'stock_manager': 'Stock Managers',
+  };
+
   List<Map<String, dynamic>> get filteredUsers {
-    return users.where((user) {
-      final query = searchController.text.toLowerCase();
+    final query = searchText.trim().toLowerCase();
 
-      final matchesSearch =
-          user['name'].toString().toLowerCase().contains(query) ||
-          user['email'].toString().toLowerCase().contains(query) ||
-          user['role'].toString().toLowerCase().contains(query);
+    final result = users.where((user) {
+      final matchesSearch = query.isEmpty ||
+          [
+            user['name'],
+            user['email'],
+            user['phone'],
+            user['role'],
+            user['branch'],
+          ].any((value) =>
+              value.toString().toLowerCase().contains(query));
 
-      final matchesFilter = filter == 'All' ||
-          (filter == 'Active' && user['active'] == true) ||
-          (filter == 'Inactive' && user['active'] == false);
+      final active = user['active'] == true;
+      final role = user['role'].toString().toLowerCase();
+
+      bool matchesFilter;
+
+      switch (selectedFilter) {
+        case 'active':
+          matchesFilter = active;
+          break;
+        case 'inactive':
+          matchesFilter = !active;
+          break;
+        case 'administrator':
+          matchesFilter = role == 'administrator';
+          break;
+        case 'manager':
+          matchesFilter = role == 'manager';
+          break;
+        case 'staff':
+          matchesFilter = role == 'staff';
+          break;
+        case 'accountant':
+          matchesFilter = role == 'accountant';
+          break;
+        case 'salesperson':
+          matchesFilter = role == 'salesperson';
+          break;
+        case 'stock_manager':
+          matchesFilter = role == 'stock manager';
+          break;
+        default:
+          matchesFilter = true;
+      }
 
       return matchesSearch && matchesFilter;
     }).toList();
+
+    switch (selectedSort) {
+      case 'name_az':
+        result.sort((a, b) => a['name']
+            .toString()
+            .toLowerCase()
+            .compareTo(b['name'].toString().toLowerCase()));
+        break;
+      case 'name_za':
+        result.sort((a, b) => b['name']
+            .toString()
+            .toLowerCase()
+            .compareTo(a['name'].toString().toLowerCase()));
+        break;
+      case 'role_az':
+        result.sort((a, b) => a['role']
+            .toString()
+            .toLowerCase()
+            .compareTo(b['role'].toString().toLowerCase()));
+        break;
+      case 'role_za':
+        result.sort((a, b) => b['role']
+            .toString()
+            .toLowerCase()
+            .compareTo(a['role'].toString().toLowerCase()));
+        break;
+      case 'branch_az':
+        result.sort((a, b) => a['branch']
+            .toString()
+            .toLowerCase()
+            .compareTo(b['branch'].toString().toLowerCase()));
+        break;
+      case 'branch_za':
+        result.sort((a, b) => b['branch']
+            .toString()
+            .toLowerCase()
+            .compareTo(a['branch'].toString().toLowerCase()));
+        break;
+      case 'newest':
+        result.sort((a, b) =>
+            users.indexOf(b).compareTo(users.indexOf(a)));
+        break;
+      case 'oldest':
+        result.sort((a, b) =>
+            users.indexOf(a).compareTo(users.indexOf(b)));
+        break;
+    }
+
+    return result;
   }
 
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: muted),
+      filled: true,
+      fillColor: const Color(0xFF080B12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: muted.withOpacity(0.25)),
+      ),
+    );
+  }
+
+  Widget _formField(
+    TextEditingController controller,
+    String label, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: Colors.white),
+        decoration: _decoration(label),
+      ),
+    );
   }
 
   void showUserForm({Map<String, dynamic>? user}) {
@@ -120,14 +262,21 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _formField(nameController, 'Full Name *'),
-                      _formField(emailController, 'Email Address *'),
-                      _formField(phoneController, 'Phone Number'),
-                      const SizedBox(height: 8),
+                      _formField(
+                        emailController,
+                        'Email Address *',
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      _formField(
+                        phoneController,
+                        'Phone Number',
+                        keyboardType: TextInputType.phone,
+                      ),
                       DropdownButtonFormField<String>(
                         value: selectedRole,
                         dropdownColor: panel,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _dropdownDecoration('User Role'),
+                        decoration: _decoration('User Role'),
                         items: roles.map((role) {
                           return DropdownMenuItem(
                             value: role,
@@ -145,7 +294,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                         value: selectedBranch,
                         dropdownColor: panel,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _dropdownDecoration('Assigned Branch'),
+                        decoration: _decoration('Assigned Branch'),
                         items: branchOptions.map((branch) {
                           return DropdownMenuItem(
                             value: branch,
@@ -233,6 +382,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     });
 
                     Navigator.pop(dialogContext);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -243,44 +393,13 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                       ),
                     );
                   },
-                  child: const Text('Save User'),
+                  child: Text(user == null ? 'Add User' : 'Update User'),
                 ),
               ],
             );
           },
         );
       },
-    );
-  }
-
-  InputDecoration _dropdownDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: muted),
-      filled: true,
-      fillColor: const Color(0xFF080B12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-    );
-  }
-
-  Widget _formField(TextEditingController controller, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(color: muted),
-          filled: true,
-          fillColor: const Color(0xFF080B12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      ),
     );
   }
 
@@ -295,62 +414,63 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user['name'],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user['name'],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(user['email'], style: TextStyle(color: muted)),
-              const SizedBox(height: 22),
-              _detailRow('Phone', user['phone']),
-              _detailRow('Role', user['role']),
-              _detailRow('Branch', user['branch']),
-              _detailRow(
-                'Status',
-                user['active'] ? 'Active' : 'Inactive',
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        showUserForm(user: user);
-                      },
-                      child: const Text('Edit User'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blue,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          user['active'] = !user['active'];
-                        });
-                        Navigator.pop(sheetContext);
-                      },
-                      child: Text(
-                        user['active'] ? 'Deactivate' : 'Activate',
+                const SizedBox(height: 6),
+                Text(user['email'], style: TextStyle(color: muted)),
+                const Divider(height: 28, color: Colors.white12),
+                _detailRow('Phone', user['phone']),
+                _detailRow('Role', user['role']),
+                _detailRow('Branch', user['branch']),
+                _detailRow(
+                  'Status',
+                  user['active'] ? 'Active' : 'Inactive',
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          showUserForm(user: user);
+                        },
+                        child: const Text('Edit User'),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            user['active'] = !user['active'];
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: Text(
+                          user['active'] ? 'Deactivate' : 'Activate',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -364,12 +484,12 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 85,
+            width: 100,
             child: Text(title, style: TextStyle(color: muted)),
           ),
           Expanded(
             child: Text(
-              value.toString().isEmpty ? '-' : value.toString(),
+              value.isEmpty ? '-' : value,
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -378,13 +498,43 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     );
   }
 
+  Widget _summaryCard(String title, int value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: blue, size: 22),
+            const SizedBox(height: 12),
+            Text(
+              value.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 23,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(title, style: TextStyle(color: muted, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Listen for changes to the shared branch list.
     ref.watch(inventoryProvider);
 
     final activeCount =
         users.where((user) => user['active'] == true).length;
+
+    final visibleUsers = filteredUsers;
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
@@ -407,69 +557,43 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Expanded(
-                    child: _summaryCard(
-                      'Total Users',
-                      users.length.toString(),
-                      Icons.people_outline,
-                    ),
+                  _summaryCard(
+                    'Total Users',
+                    users.length,
+                    Icons.people_outline,
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _summaryCard(
-                      'Active Users',
-                      activeCount.toString(),
-                      Icons.verified_user_outlined,
-                    ),
+                  _summaryCard(
+                    'Active Users',
+                    activeCount,
+                    Icons.verified_user_outlined,
                   ),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: searchController,
-                onChanged: (_) => setState(() {}),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search users...',
-                  hintStyle: TextStyle(color: muted),
-                  prefixIcon: Icon(Icons.search, color: muted),
-                  filled: true,
-                  fillColor: panel,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+              child: InventoryListToolbar(
+                searchController: searchController,
+                searchHint: 'Search name, email, phone, role or branch...',
+                onSearchChanged: (value) {
+                  setState(() => searchText = value);
+                },
+                sortOptions: sortOptions,
+                selectedSort: selectedSort,
+                onSortChanged: (value) {
+                  setState(() => selectedSort = value);
+                },
+                filterOptions: filterOptions,
+                selectedFilter: selectedFilter,
+                onFilterChanged: (value) {
+                  setState(() => selectedFilter = value);
+                },
               ),
             ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: ['All', 'Active', 'Inactive'].map((item) {
-                  final selected = filter == item;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(item),
-                      selected: selected,
-                      onSelected: (_) => setState(() => filter = item),
-                      selectedColor: blue,
-                      backgroundColor: panel,
-                      labelStyle: TextStyle(
-                        color: selected ? Colors.white : muted,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Expanded(
-              child: filteredUsers.isEmpty
+              child: visibleUsers.isEmpty
                   ? Center(
                       child: Text(
                         'No users found.',
@@ -478,9 +602,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                      itemCount: filteredUsers.length,
+                      itemCount: visibleUsers.length,
                       itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
+                        final user = visibleUsers[index];
                         final active = user['active'] == true;
 
                         return Card(
@@ -493,7 +617,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             contentPadding: const EdgeInsets.all(14),
                             onTap: () => showUserDetails(user),
                             leading: CircleAvatar(
-                              backgroundColor: blue.withValues(alpha: 0.15),
+                              backgroundColor: blue.withOpacity(0.15),
                               child: Icon(Icons.person, color: blue),
                             ),
                             title: Text(
@@ -506,10 +630,11 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
-                                '${user['role']} • ${user['branch']}',
+                                '${user['role']} • ${user['branch']}\n${user['email']}',
                                 style: TextStyle(color: muted),
                               ),
                             ),
+                            isThreeLine: true,
                             trailing: Icon(
                               Icons.circle,
                               size: 11,
@@ -524,33 +649,6 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _summaryCard(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: panel,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: blue, size: 22),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(title, style: TextStyle(color: muted, fontSize: 12)),
-        ],
       ),
     );
   }
