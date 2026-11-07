@@ -19,6 +19,8 @@ import 'allocation_screen.dart';
 import 'suppliers_screen.dart';
 import 'help_screen.dart';
 import 'transfer_screen.dart';
+import 'customers_screen.dart';
+import 'sales_history_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -140,6 +142,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openMenuPage(String item, int? page) async {
     Navigator.pop(context);
 
+    // Open the dedicated Sales History screen.
+    if (item == 'Sales History') {
+      await _openDestination(const SalesHistoryScreen());
+      return;
+    }
+
+    // Open the dedicated Customers screen.
+    if (item == 'Customers') {
+      await _openDestination(const CustomersScreen());
+      return;
+    }
+
     if (page != null) {
       await _openPage(page);
       return;
@@ -180,7 +194,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$item will be added soon.')),
+          SnackBar(
+            content: Text('$item will be added soon.'),
+          ),
         );
     }
   }
@@ -383,9 +399,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Icons.shopping_cart_outlined,
                     [
                       _menuTile('Create Sale', 3),
-                      _menuTile('Sales History', 3),
+                      _menuTile('Sales History', null),
                       _menuTile('Customers', null),
                       _menuTile('Returns', null),
+                    ],
+                  ),
+
+                  _menuGroup(
+                    'Reports',
+                    Icons.analytics_outlined,
+                    [
+                      _menuTile('Dashboard Summary Report', null),
+                      _menuTile('Daily Sales Report', null),
+                      _menuTile('Monthly Sales Report', null),
+                      _menuTile('Sales Detail Report', null),
+                      _menuTile('Sales by Product Report', null),
+                      _menuTile('Sales by Customer Report', null),
+                      _menuTile('Sales by Branch Report', null),
+                      _menuTile('Sales Returns Report', null),
+                      _menuTile('Purchase Summary Report', null),
+                      _menuTile('Purchase Detail Report', null),
+                      _menuTile('Supplier Performance Report', null),
+                      _menuTile('Supplier Returns Report', null),
+                      _menuTile('Stock Summary Report', null),
+                      _menuTile('Stock Movement Report', null),
+                      _menuTile('Stock In Report', null),
+                      _menuTile('Stock Out Report', null),
+                      _menuTile('Low Stock Report', null),
+                      _menuTile('Out of Stock Report', null),
+                      _menuTile('Inventory Valuation Report', null),
+                      _menuTile('Product Performance Report', null),
+                      _menuTile('Profit and Margin Report', null),
+                      _menuTile('Customer Balance Report', null),
+                      _menuTile('Supplier Balance Report', null),
+                      _menuTile('Branch Comparison Report', null),
+                      _menuTile('Payment Method Report', null),
+                      _menuTile('Tax Summary Report', null),
                     ],
                   ),
 
