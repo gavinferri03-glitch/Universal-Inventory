@@ -1548,7 +1548,64 @@ SaleRecord createSale({
 
   notifyListeners();
 
-  return sale;
+    return sale;
+}
+
+// ============================================================
+// UPDATE SALE PAYMENT
+// ============================================================
+
+void updateSalePayment({
+  required String invoiceNumber,
+  required double amountPaid,
+  required String paymentMethod,
+}) {
+  final index = _sales.indexWhere(
+    (sale) => sale.invoiceNumber == invoiceNumber,
+  );
+
+  if (index == -1) {
+    throw Exception('Sale invoice not found.');
+  }
+
+  final oldSale = _sales[index];
+
+  if (amountPaid < 0 || amountPaid > oldSale.total) {
+    throw Exception(
+      'Payment must be between zero and the invoice total.',
+    );
+  }
+
+  final cleanPaymentMethod = paymentMethod.trim();
+
+  if (cleanPaymentMethod.isEmpty) {
+    throw Exception('Please select a payment method.');
+  }
+
+  _sales[index] = SaleRecord(
+    invoiceNumber: oldSale.invoiceNumber,
+    branchId: oldSale.branchId,
+    customerName: oldSale.customerName,
+    customerPhone: oldSale.customerPhone,
+    paymentMethod: cleanPaymentMethod,
+    items: oldSale.items,
+    subtotal: oldSale.subtotal,
+    discount: oldSale.discount,
+    tax: oldSale.tax,
+    total: oldSale.total,
+    amountPaid: amountPaid,
+    date: oldSale.date,
+  );
+
+  notificationCenter.add(
+    title: 'Sale Payment Updated',
+    message: 'Payment updated for invoice $invoiceNumber.',
+    category: NotificationCategory.sales,
+    action: 'sale',
+    relatedId: invoiceNumber,
+  );
+
+  notifyListeners();
 }
 
 // ============================================================
