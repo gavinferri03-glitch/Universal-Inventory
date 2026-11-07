@@ -56,7 +56,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
 
   double get total => subtotal - discount + tax;
 
-  string money(double value) => value.toStringAsFixed(2);
+  String money(double value) => value.toStringAsFixed(2);
 
   InputDecoration decoration(String label) {
     return InputDecoration(
