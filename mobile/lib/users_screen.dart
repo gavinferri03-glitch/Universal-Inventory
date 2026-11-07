@@ -1,14 +1,16 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'inventory_data.dart';
 
-class UsersScreen extends StatefulWidget {
+class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
 
   @override
-  State<UsersScreen> createState() => _UsersScreenState();
+  ConsumerState<UsersScreen> createState() => _UsersScreenState();
 }
 
-class _UsersScreenState extends State<UsersScreen> {
+class _UsersScreenState extends ConsumerState<UsersScreen> {
   final Color blue = const Color(0xFF5798FF);
   final Color panel = const Color(0xFF121D2D);
   final Color muted = const Color(0xFF91A4BE);
@@ -84,15 +86,21 @@ class _UsersScreenState extends State<UsersScreen> {
     final phoneController =
         TextEditingController(text: user?['phone'] ?? '');
 
-    String selectedRole = user?['role'] ?? 'Staff';
-    String selectedBranch = user?['branch'] ?? 'Main Branch';
+    final inventory = ref.read(inventoryProvider);
 
     final branchOptions = [
       'All Branches',
-      'Main Branch',
-      'Pokhara Branch',
-      'Lalitpur Branch',
+      ...inventory.branches
+          .where((branch) => branch.active)
+          .map((branch) => branch.name),
     ];
+
+    String selectedRole = user?['role'] ?? 'Staff';
+    String selectedBranch = user?['branch'] ?? 'All Branches';
+
+    if (!branchOptions.contains(selectedBranch)) {
+      selectedBranch = 'All Branches';
+    }
 
     showDialog(
       context: context,
@@ -152,7 +160,7 @@ class _UsersScreenState extends State<UsersScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Password and account activation will be handled when authentication is implemented.',
+                        'Only active branches are available for assignment.',
                         style: TextStyle(color: muted, fontSize: 12),
                       ),
                     ],
@@ -372,6 +380,9 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for changes to the shared branch list.
+    ref.watch(inventoryProvider);
+
     final activeCount =
         users.where((user) => user['active'] == true).length;
 
