@@ -31,10 +31,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const Color blue = Color(0xFF5798FF);
   static const Color muted = Color(0xFF91A4BE);
 
-  // ==========================================================
-  // NAVIGATION
-  // ==========================================================
-
   Future<void> _openPage(int index) async {
     if (index == 0) {
       Navigator.popUntil(context, (route) => route.isFirst);
@@ -87,27 +83,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 'Business Profile':
         destination = const BusinessProfileScreen();
         break;
-
       case 'Branches':
         destination = const BranchesScreen();
         break;
-
       case 'Users':
         destination = const UsersScreen();
         break;
-
       case 'Categories':
         destination = const CategoriesScreen();
         break;
-
       case 'Allocation':
         destination = const AllocationScreen();
         break;
-
       case 'Suppliers':
         destination = const SuppliersScreen();
         break;
-
       case 'User Guide':
       case 'FAQs':
       case 'Contact Support':
@@ -126,16 +116,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$item will be added soon.'),
-        ),
+        SnackBar(content: Text('$item will be added soon.')),
       );
     }
   }
-
-  // ==========================================================
-  // DRAWER MENU
-  // ==========================================================
 
   Widget _menuTile(String title, int? page) {
     return ListTile(
@@ -221,7 +205,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
-
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 14),
               padding: const EdgeInsets.all(13),
@@ -231,11 +214,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(
-                    Icons.business,
-                    color: blue,
-                    size: 27,
-                  ),
+                  Icon(Icons.business, color: blue, size: 27),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -259,16 +238,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: muted,
-                  ),
+                  Icon(Icons.chevron_right, color: muted),
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
@@ -282,7 +256,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Users', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Product Master',
                     Icons.inventory_2_outlined,
@@ -293,7 +266,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Suppliers', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Stock',
                     Icons.inventory_outlined,
@@ -304,7 +276,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Adjustments', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Sales',
                     Icons.shopping_cart_outlined,
@@ -315,7 +286,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _menuTile('Returns', null),
                     ],
                   ),
-
                   _menuGroup(
                     'Help',
                     Icons.help_outline,
@@ -328,11 +298,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
-
-            const Divider(
-              color: Color(0xFF26364D),
-            ),
-
+            const Divider(color: Color(0xFF26364D)),
             ListTile(
               leading: const Icon(
                 Icons.settings_outlined,
@@ -344,17 +310,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onTap: () => _openMenuPage('Settings', 4),
             ),
-
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
-
-  // ==========================================================
-  // SUMMARY CARDS
-  // ==========================================================
 
   Widget _summaryCard({
     required String title,
@@ -368,9 +329,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF26364D),
-        ),
+        border: Border.all(color: const Color(0xFF26364D)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,10 +338,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 13),
           Text(
             title,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: muted, fontSize: 11),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -400,19 +356,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: muted, fontSize: 10),
           ),
         ],
       ),
     );
   }
-
-  // ==========================================================
-  // QUICK ACTIONS
-  // ==========================================================
 
   Widget _quickAction({
     required String title,
@@ -428,9 +377,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFF26364D),
-          ),
+          border: Border.all(color: const Color(0xFF26364D)),
         ),
         child: Row(
           children: [
@@ -441,11 +388,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: color.withValues(alpha: 0.17),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 21,
-              ),
+              child: Icon(icon, color: color, size: 21),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -464,10 +407,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _sectionTitle(
-    String title, {
-    Widget? trailing,
-  }) {
+  Widget _sectionTitle(String title, {Widget? trailing}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -484,19 +424,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ==========================================================
-  // SALES OVERVIEW
-  // ==========================================================
-
   Widget _salesOverview(InventoryData inventory) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF26364D),
-        ),
+        border: Border.all(color: const Color(0xFF26364D)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,16 +444,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 "Today's Sales",
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: muted, fontSize: 12),
               ),
               Text(
                 'Rs. ${inventory.totalSalesToday.toStringAsFixed(2)}',
@@ -531,18 +461,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 "Today's Orders",
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: muted, fontSize: 12),
               ),
               Text(
                 '${inventory.salesCountToday}',
@@ -553,18 +478,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Total Recorded Sales',
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: muted, fontSize: 12),
               ),
               Text(
                 'Rs. ${inventory.totalSales.toStringAsFixed(2)}',
@@ -579,10 +499,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
     );
   }
-
-  // ==========================================================
-  // LOW STOCK ALERTS
-  // ==========================================================
 
   Widget _stockAlert(InventoryProduct product) {
     return Container(
@@ -634,10 +550,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ==========================================================
-  // RECENT ACTIVITY
-  // ==========================================================
-
   Widget _activityItem(
     StockMovement movement,
     InventoryData inventory,
@@ -658,7 +570,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             : Icons.swap_horiz;
 
     final branch = inventory.findBranch(movement.branchId);
-
     final date = movement.date;
 
     final time =
@@ -679,7 +590,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: Icon(icon, color: color),
           ),
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -707,22 +617,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
           ),
-
           Text(
             time,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: muted, fontSize: 10),
           ),
         ],
       ),
     );
   }
-
-  // ==========================================================
-  // MAIN DASHBOARD
-  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
@@ -730,18 +632,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final lowStockProducts = inventory.products
         .where(
-          (product) =>
-              product.quantity <= product.minimumStock,
+          (product) => product.quantity <= product.minimumStock,
         )
         .toList();
 
-    final recentMovements =
-        inventory.movements.take(5).toList();
+    final recentMovements = inventory.movements.take(5).toList();
 
     return Scaffold(
       backgroundColor: background,
       drawer: _buildDrawer(),
-
       appBar: AppBar(
         backgroundColor: background,
         elevation: 0,
@@ -752,26 +651,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Notifications will be added soon.',
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.notifications_none,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -780,14 +660,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               const Text(
                 'Welcome back!',
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: muted, fontSize: 14),
               ),
-
               const SizedBox(height: 5),
-
               const Text(
                 "Here's what's happening with your business today.",
                 style: TextStyle(
@@ -796,11 +671,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 22),
-
-              // SUMMARY CARDS
-
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -816,7 +687,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.inventory_2_outlined,
                     color: blue,
                   ),
-
                   _summaryCard(
                     title: 'Total Stock Quantity',
                     value: '${inventory.totalStock}',
@@ -824,7 +694,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.all_inbox_outlined,
                     color: const Color(0xFF45C99A),
                   ),
-
                   _summaryCard(
                     title: 'Low Stock Items',
                     value: '${inventory.lowStockCount}',
@@ -832,26 +701,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.warning_amber_rounded,
                     color: const Color(0xFFFFB454),
                   ),
-
                   _summaryCard(
                     title: "Today's Sales",
                     value:
                         'Rs. ${inventory.totalSalesToday.toStringAsFixed(0)}',
-                    subtitle:
-                        '${inventory.salesCountToday} orders today',
+                    subtitle: '${inventory.salesCountToday} orders today',
                     icon: Icons.trending_up,
                     color: const Color(0xFFB28AFF),
                   ),
                 ],
               ),
-
               const SizedBox(height: 28),
-
-              // QUICK ACTIONS
-
               _sectionTitle('Quick Actions'),
               const SizedBox(height: 13),
-
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -866,21 +728,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     color: blue,
                     onTap: () => _openPage(1),
                   ),
-
                   _quickAction(
                     title: 'Stock In',
                     icon: Icons.call_received,
                     color: const Color(0xFF45C99A),
                     onTap: () => _openPage(2),
                   ),
-
                   _quickAction(
                     title: 'Stock Out',
                     icon: Icons.call_made,
                     color: const Color(0xFFFFB454),
                     onTap: () => _openPage(2),
                   ),
-
                   _quickAction(
                     title: 'Create Sale',
                     icon: Icons.shopping_cart_outlined,
@@ -889,17 +748,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 28),
-
-              // SALES OVERVIEW
-
               _salesOverview(inventory),
-
               const SizedBox(height: 28),
-
-              // LOW STOCK ALERTS
-
               _sectionTitle(
                 'Low Stock Alerts',
                 trailing: TextButton(
@@ -907,9 +758,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: const Text('View products'),
                 ),
               ),
-
               const SizedBox(height: 8),
-
               if (lowStockProducts.isEmpty)
                 Container(
                   width: double.infinity,
@@ -924,17 +773,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 )
               else
-                ...lowStockProducts
-                    .take(5)
-                    .map(_stockAlert),
-
+                ...lowStockProducts.take(5).map(_stockAlert),
               const SizedBox(height: 20),
-
-              // RECENT ACTIVITY
-
               _sectionTitle('Recent Activity'),
               const SizedBox(height: 16),
-
               if (recentMovements.isEmpty)
                 const Text(
                   'No stock activity recorded yet.',
@@ -942,18 +784,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 )
               else
                 ...recentMovements.map(
-                  (movement) =>
-                      _activityItem(movement, inventory),
+                  (movement) => _activityItem(movement, inventory),
                 ),
-
               const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-
-      // BOTTOM NAVIGATION
-
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF101927),
         indicatorColor: blue.withValues(alpha: 0.18),
