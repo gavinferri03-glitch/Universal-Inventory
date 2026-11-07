@@ -1,6 +1,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'notifications_data.dart';
 
 // ============================================================
 // PRODUCT
@@ -181,6 +182,23 @@ class SaleRecord {
 
 class InventoryData extends ChangeNotifier {
   // ----------------------------------------------------------
+  // SHARED NOTIFICATION CENTER
+  // ----------------------------------------------------------
+
+  final NotificationCenter notificationCenter = NotificationCenter();
+
+  InventoryData() {
+    notificationCenter.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    notificationCenter.removeListener(notifyListeners);
+    notificationCenter.dispose();
+    super.dispose();
+  }
+
+  // ----------------------------------------------------------
   // SAMPLE PRODUCTS
   // ----------------------------------------------------------
 
@@ -222,7 +240,6 @@ class InventoryData extends ChangeNotifier {
       id: '4',
       name: 'Bluetooth Speaker',
       sku: 'ELE-004',
-      category: 'Electronics',
       sellingPrice: 2500,
       costPrice: 1800,
       quantity: 35,
