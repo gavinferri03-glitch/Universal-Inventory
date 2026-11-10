@@ -11,25 +11,219 @@ import 'inventory_invoice_pdf.dart';
 class StockScreen extends ConsumerWidget {
   const StockScreen({super.key});
 
+  static const Color background = Color(0xFF080B12);
+  static const Color panel = Color(0xFF121D2D);
   static const Color blue = Color(0xFF5798FF);
   static const Color green = Color(0xFF45C99A);
   static const Color orange = Color(0xFFFFB454);
-  static const Color panel = Color(0xFF121D2D);
   static const Color muted = Color(0xFF91A4BE);
+  static const Color borderColor = Color(0xFF26364D);
 
   void _message(BuildContext context, String message) {
+    if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
-  Future<void> _purchase(BuildContext context, WidgetRef ref) async {
+  String _money(double value) => 'Rs. ${value.toStringAsFixed(2)}';
+
+  String _date(DateTime value) {
+    return '${value.day.toString().padLeft(2, '0')}/'
+        '${value.month.toString().padLeft(2, '0')}/'
+        '${value.year}';
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: muted),
+      filled: true,
+      fillColor: background,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: blue),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryCard(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 23,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            title,
+            style: const TextStyle(
+              color: muted,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 27),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: muted,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _historyCard({
+    required String title,
+    required String subtitle,
+    required String trailing,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      color: panel,
+      margin: const EdgeInsets.only(bottom: 9),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(13),
+        side: const BorderSide(color: borderColor),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: muted,
+            fontSize: 11,
+          ),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              trailing,
+              style: const TextStyle(
+                color: blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: muted,
+              size: 18,
+            ),
+          ],
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+
+  // ============================================================
+  // PURCHASE ORDER
+  // ============================================================
+
+  Future<void> _purchase(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final inventory = ref.read(inventoryProvider);
     final data = ref.read(inventoryPurchaseProvider);
+
+    final products = inventory.products;
     final branches = inventory.branches.where((b) => b.active).toList();
 
-    if (inventory.products.isEmpty || branches.isEmpty) {
-      _message(context, 'Add products and an active branch first.');
+    if (products.isEmpty) {
+      _message(context, 'Add products before creating a purchase.');
+      return;
+    }
+
+    if (branches.isEmpty) {
+      _message(context, 'Create an active branch first.');
       return;
     }
 
@@ -42,243 +236,430 @@ class StockScreen extends ConsumerWidget {
     final paid = TextEditingController(text: '0');
     final notes = TextEditingController();
 
+    final lines = <_PurchaseLineInput>[
+      _PurchaseLineInput(products.first.id),
+    ];
+
     String branchId = branches.first.id;
     String paymentMethod = 'Cash';
 
-    final lines = <_PurchaseLineInput>[
-      _PurchaseLineInput(inventory.products.first.id),
-    ];
-
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refresh) {
-          InputDecoration field(String label) => InputDecoration(
-            labelText: label,
-            filled: true,
-            fillColor: const Color(0xFF080B12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          );
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            double subtotal = 0;
 
-          Widget textField(
-            TextEditingController controller,
-            String label, {
-            bool number = false,
-          }) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: TextField(
-                controller: controller,
-                keyboardType: number
-                    ? const TextInputType.numberWithOptions(decimal: true)
-                    : TextInputType.text,
-                decoration: field(label),
+            for (final line in lines) {
+              final quantity =
+                  int.tryParse(line.quantity.text.trim()) ?? 0;
+              final cost =
+                  double.tryParse(line.cost.text.trim()) ?? 0;
+              subtotal += quantity * cost;
+            }
+
+            final discountValue =
+                double.tryParse(discount.text.trim()) ?? 0;
+            final taxValue =
+                double.tryParse(tax.text.trim()) ?? 0;
+            final total = subtotal - discountValue + taxValue;
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'New Purchase Order',
+                style: TextStyle(color: Colors.white),
               ),
-            );
-          }
-
-          return AlertDialog(
-            backgroundColor: panel,
-            title: const Text(
-              'New Purchase Order',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    textField(supplier, 'Supplier name *'),
-                    textField(phone, 'Supplier phone'),
-                    textField(address, 'Supplier address'),
-                    textField(supplierInvoice, 'Supplier invoice number (optional)'),
-                    DropdownButtonFormField<String>(
-                      value: branchId,
-                      isExpanded: true,
-                      dropdownColor: panel,
-                      decoration: field('Receiving branch'),
-                      items: branches.map((b) => DropdownMenuItem(
-                        value: b.id,
-                        child: Text(b.name),
-                      )).toList(),
-                      onChanged: (v) {
-                        if (v != null) refresh(() => branchId = v);
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Products',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: supplier,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Supplier name *'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: phone,
+                        style: const TextStyle(color: Colors.white),
+                        keyboardType: TextInputType.phone,
+                        decoration: _decoration('Supplier phone'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: address,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Supplier address'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: supplierInvoice,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration(
+                          'Supplier invoice number',
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...lines.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final line = entry.value;
-                      final product = inventory.products.firstWhere(
-                        (p) => p.id == line.productId,
-                      );
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: branchId,
+                        isExpanded: true,
+                        dropdownColor: panel,
+                        decoration: _decoration('Receiving branch'),
+                        items: branches.map((branch) {
+                          return DropdownMenuItem(
+                            value: branch.id,
+                            child: Text(
+                              branch.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() => branchId = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Purchase Items',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...lines.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final line = entry.value;
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(10),
+                        final product = products.firstWhere(
+                          (p) => p.id == line.productId,
+                        );
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: background,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: line.productId,
+                                      isExpanded: true,
+                                      dropdownColor: panel,
+                                      decoration: _decoration('Product'),
+                                      items: products.map((p) {
+                                        return DropdownMenuItem(
+                                          value: p.id,
+                                          child: Text(
+                                            p.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          refresh(() {
+                                            line.productId = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: lines.length <= 1
+                                        ? null
+                                        : () {
+                                            final removed =
+                                                lines.removeAt(index);
+                                            removed.dispose();
+                                            refresh(() {});
+                                          },
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: line.quantity,
+                                      keyboardType:
+                                          TextInputType.number,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      decoration: _decoration('Quantity'),
+                                      onChanged: (_) => refresh(() {}),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: line.cost,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      decoration: _decoration('Unit cost'),
+                                      onChanged: (_) => refresh(() {}),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '${product.unit} • ${product.sku}',
+                                  style: const TextStyle(
+                                    color: muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      TextButton.icon(
+                        onPressed: () {
+                          refresh(() {
+                            lines.add(
+                              _PurchaseLineInput(products.first.id),
+                            );
+                          });
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add another product'),
+                      ),
+                      const Divider(color: borderColor),
+                      TextField(
+                        controller: discount,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Discount amount'),
+                        onChanged: (_) => refresh(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: tax,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Tax amount'),
+                        onChanged: (_) => refresh(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: paid,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Amount paid'),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: paymentMethod,
+                        dropdownColor: panel,
+                        decoration: _decoration('Payment method'),
+                        items: [
+                          'Cash',
+                          'Bank Transfer',
+                          'Card',
+                          'Credit',
+                          'Other',
+                        ].map((value) {
+                          return DropdownMenuItem(
+                            value: value,
+                            child: Text(
+                              value,
+                              style: const TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() => paymentMethod = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: notes,
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: 2,
+                        decoration: _decoration('Notes'),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF080B12),
+                          color: background,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: line.productId,
-                                    isExpanded: true,
-                                    dropdownColor: panel,
-                                    decoration: field('Product'),
-                                    items: inventory.products.map((p) =>
-                                      DropdownMenuItem(
-                                        value: p.id,
-                                        child: Text(p.name),
-                                      ),
-                                    ).toList(),
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        refresh(() => line.productId = v);
-                                      }
-                                    },
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: lines.length == 1
-                                      ? null
-                                      : () => refresh(() => lines.removeAt(index)),
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                ),
-                              ],
+                            _totalRow('Subtotal', _money(subtotal)),
+                            _totalRow(
+                              'Discount',
+                              _money(discountValue),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: line.quantity,
-                                    keyboardType: TextInputType.number,
-                                    decoration: field('Quantity'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextField(
-                                    controller: line.cost,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: field('Unit cost'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Unit: ${product.unit}  •  SKU: ${product.sku}',
-                                style: const TextStyle(color: muted, fontSize: 11),
-                              ),
+                            _totalRow('Tax', _money(taxValue)),
+                            const Divider(color: borderColor),
+                            _totalRow(
+                              'Grand Total',
+                              _money(total),
+                              highlight: true,
                             ),
                           ],
                         ),
-                      );
-                    }),
-                    TextButton.icon(
-                      onPressed: () => refresh(() {
-                        lines.add(_PurchaseLineInput(inventory.products.first.id));
-                      }),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add another product'),
-                    ),
-                    const Divider(color: Colors.white24),
-                    textField(discount, 'Discount amount', number: true),
-                    textField(tax, 'Tax amount', number: true),
-                    textField(paid, 'Amount paid', number: true),
-                    DropdownButtonFormField<String>(
-                      value: paymentMethod,
-                      dropdownColor: panel,
-                      decoration: field('Payment method'),
-                      items: ['Cash', 'Bank Transfer', 'Card', 'Credit', 'Other']
-                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) refresh(() => paymentMethod = v);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    textField(notes, 'Notes'),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Purchase order number is generated automatically.',
-                        style: TextStyle(color: green, fontSize: 12),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final purchaseLines = lines.map((line) {
-                      final product = inventory.getProductById(line.productId)!;
-                      return PurchaseOrderLine(
-                        productId: product.id,
-                        productName: product.name,
-                        sku: product.sku,
-                        unit: product.unit,
-                        quantity: int.parse(line.quantity.text.trim()),
-                        unitCost: double.parse(line.cost.text.trim()),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      if (supplier.text.trim().isEmpty) {
+                        throw Exception('Enter the supplier name.');
+                      }
+
+                      final purchaseLines = <PurchaseOrderLine>[];
+
+                      for (final line in lines) {
+                        final quantity = int.tryParse(
+                          line.quantity.text.trim(),
+                        );
+                        final cost = double.tryParse(
+                          line.cost.text.trim(),
+                        );
+
+                        if (quantity == null ||
+                            quantity <= 0 ||
+                            cost == null ||
+                            !cost.isFinite ||
+                            cost < 0) {
+                          throw Exception(
+                            'Enter valid quantities and unit costs.',
+                          );
+                        }
+
+                        final product = inventory.getProductById(
+                          line.productId,
+                        );
+
+                        if (product == null) {
+                          throw Exception('A product was not found.');
+                        }
+
+                        purchaseLines.add(
+                          PurchaseOrderLine(
+                            productId: product.id,
+                            productName: product.name,
+                            sku: product.sku,
+                            unit: product.unit,
+                            quantity: quantity,
+                            unitCost: cost,
+                          ),
+                        );
+                      }
+
+                      final discountAmount = double.tryParse(
+                        discount.text.trim(),
                       );
-                    }).toList();
+                      final taxAmount = double.tryParse(
+                        tax.text.trim(),
+                      );
+                      final paidAmount = double.tryParse(
+                        paid.text.trim(),
+                      );
 
-                    await data.createPurchaseOrder(
-                      inventory: inventory,
-                      supplierName: supplier.text,
-                      supplierPhone: phone.text,
-                      supplierAddress: address.text,
-                      supplierInvoiceNumber: supplierInvoice.text,
-                      branchId: branchId,
-                      items: purchaseLines,
-                      discount: double.parse(discount.text),
-                      tax: double.parse(tax.text),
-                      amountPaid: double.parse(paid.text),
-                      paymentMethod: paymentMethod,
-                      notes: notes.text,
-                    );
+                      if (discountAmount == null ||
+                          taxAmount == null ||
+                          paidAmount == null ||
+                          !discountAmount.isFinite ||
+                          !taxAmount.isFinite ||
+                          !paidAmount.isFinite) {
+                        throw Exception('Enter valid payment amounts.');
+                      }
 
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext, true);
+                      await data.createPurchaseOrder(
+                        inventory: inventory,
+                        supplierName: supplier.text,
+                        supplierPhone: phone.text,
+                        supplierAddress: address.text,
+                        supplierInvoiceNumber: supplierInvoice.text,
+                        branchId: branchId,
+                        items: purchaseLines,
+                        discount: discountAmount,
+                        tax: taxAmount,
+                        amountPaid: paidAmount,
+                        paymentMethod: paymentMethod,
+                        notes: notes.text,
+                      );
+
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, true);
+                      }
+                    } catch (error) {
+                      _message(
+                        context,
+                        error.toString().replaceFirst(
+                          'Exception: ',
+                          '',
+                        ),
+                      );
                     }
-                  } catch (e) {
-                    _message(context, e.toString().replaceFirst('Exception: ', ''));
-                  }
-                },
-                child: const Text('Save Purchase'),
-              ),
-            ],
-          );
-        },
-      ),
+                  },
+                  child: const Text('Save Purchase'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     supplier.dispose();
@@ -289,6 +670,7 @@ class StockScreen extends ConsumerWidget {
     tax.dispose();
     paid.dispose();
     notes.dispose();
+
     for (final line in lines) {
       line.dispose();
     }
@@ -298,209 +680,358 @@ class StockScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _supplierReturn(BuildContext context, WidgetRef ref) async {
+  Widget _totalRow(
+    String label,
+    String value, {
+    bool highlight = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: highlight ? Colors.white : muted,
+              fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: highlight ? green : Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SUPPLIER RETURN
+  // ============================================================
+
+  Future<void> _supplierReturn(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final inventory = ref.read(inventoryProvider);
     final data = ref.read(inventoryPurchaseProvider);
 
     if (data.purchaseOrders.isEmpty) {
-      _message(context, 'Create a purchase order before recording a supplier return.');
+      _message(
+        context,
+        'Create a purchase order before recording a supplier return.',
+      );
       return;
     }
 
     PurchaseOrderRecord selected = data.purchaseOrders.first;
+
     final reason = TextEditingController();
     final notes = TextEditingController();
-    String settlement = 'Supplier Credit';
     final quantities = <String, TextEditingController>{};
+
+    String settlement = 'Supplier Credit';
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refresh) {
-          final returned = data.supplierReturns
-              .where((r) => r.originalPurchaseOrderNumber == selected.purchaseOrderNumber)
-              .expand((r) => r.items)
-              .fold<Map<String, int>>({}, (map, item) {
-                map[item.productId] = (map[item.productId] ?? 0) + item.quantity;
-                return map;
-              });
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            final returned = <String, int>{};
 
-          final uniqueItems = <String, PurchaseOrderLine>{};
-          for (final item in selected.items) {
-            uniqueItems[item.productId] = item;
-          }
+            for (final record in data.supplierReturns.where(
+              (r) =>
+                  r.originalPurchaseOrderNumber ==
+                  selected.purchaseOrderNumber,
+            )) {
+              for (final item in record.items) {
+                returned[item.productId] =
+                    (returned[item.productId] ?? 0) + item.quantity;
+              }
+            }
 
-          return AlertDialog(
-            backgroundColor: panel,
-            title: const Text('Supplier Return', style: TextStyle(color: Colors.white)),
-            content: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: selected.purchaseOrderNumber,
-                      isExpanded: true,
-                      dropdownColor: panel,
-                      decoration: const InputDecoration(
-                        labelText: 'Original purchase',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: data.purchaseOrders.map((p) =>
-                        DropdownMenuItem(
-                          value: p.purchaseOrderNumber,
-                          child: Text('${p.purchaseOrderNumber} • ${p.supplierName}'),
-                        ),
-                      ).toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          refresh(() {
-                            selected = data.purchaseOrders.firstWhere(
-                              (p) => p.purchaseOrderNumber == v,
-                            );
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Supplier: ${selected.supplierName}\nBranch: ${inventory.getBranchById(selected.branchId)?.name ?? selected.branchId}',
-                        style: const TextStyle(color: muted),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...uniqueItems.values.map((item) {
-                      final product = inventory.getProductById(item.productId);
-                      final already = returned[item.productId] ?? 0;
-                      final remaining = item.quantity - already;
-                      final controller = quantities.putIfAbsent(
-                        item.productId,
-                        () => TextEditingController(),
-                      );
+            final uniqueItems = <String, PurchaseOrderLine>{};
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF080B12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.productName, style: const TextStyle(color: Colors.white)),
-                            Text(
-                              'Purchased: ${item.quantity}  •  Already returned: $already  •  Remaining: $remaining',
-                              style: const TextStyle(color: muted, fontSize: 11),
-                            ),
-                            TextField(
-                              controller: controller,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Quantity to return (leave blank to skip)',
+            for (final item in selected.items) {
+              uniqueItems[item.productId] = item;
+            }
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Supplier Return',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: selected.purchaseOrderNumber,
+                        isExpanded: true,
+                        dropdownColor: panel,
+                        decoration: _decoration('Original purchase'),
+                        items: data.purchaseOrders.map((order) {
+                          return DropdownMenuItem(
+                            value: order.purchaseOrderNumber,
+                            child: Text(
+                              '${order.purchaseOrderNumber} • ${order.supplierName}',
+                              style: const TextStyle(
+                                color: Colors.white,
                               ),
                             ),
-                            Text(
-                              'Current branch stock: ${inventory.getBranchQuantity(item.productId, selected.branchId)} ${product?.unit ?? item.unit}',
-                              style: const TextStyle(color: muted, fontSize: 11),
-                            ),
-                          ],
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+
+                          refresh(() {
+                            selected = data.purchaseOrders.firstWhere(
+                              (order) =>
+                                  order.purchaseOrderNumber == value,
+                            );
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Supplier: ${selected.supplierName}\n'
+                          'Branch: ${inventory.getBranchById(selected.branchId)?.name ?? selected.branchId}',
+                          style: const TextStyle(
+                            color: muted,
+                            height: 1.5,
+                          ),
                         ),
-                      );
-                    }),
-                    TextField(
-                      controller: reason,
-                      decoration: const InputDecoration(
-                        labelText: 'Reason for return *',
-                        border: OutlineInputBorder(),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: settlement,
-                      decoration: const InputDecoration(
-                        labelText: 'Settlement',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 14),
+                      ...uniqueItems.values.map((item) {
+                        final alreadyReturned =
+                            returned[item.productId] ?? 0;
+                        final remaining =
+                            item.quantity - alreadyReturned;
+
+                        final controller = quantities.putIfAbsent(
+                          item.productId,
+                          () => TextEditingController(),
+                        );
+
+                        final product = inventory.getProductById(
+                          item.productId,
+                        );
+
+                        final available = inventory.getBranchQuantity(
+                          item.productId,
+                          selected.branchId,
+                        );
+
+                        return Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: background,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.productName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                'Purchased: ${item.quantity} ${item.unit}',
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                'Already returned: $alreadyReturned',
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                'Remaining returnable: $remaining',
+                                style: const TextStyle(
+                                  color: green,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                'Current branch stock: $available ${product?.unit ?? item.unit}',
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: controller,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                ),
+                                decoration: _decoration(
+                                  'Quantity to return (blank to skip)',
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reason,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _decoration('Return reason *'),
                       ),
-                      dropdownColor: panel,
-                      items: ['Supplier Credit', 'Refund', 'Replacement']
-                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) refresh(() => settlement = v);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: notes,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: settlement,
+                        dropdownColor: panel,
+                        decoration: _decoration('Settlement'),
+                        items: [
+                          'Supplier Credit',
+                          'Refund',
+                          'Replacement',
+                        ].map((value) {
+                          return DropdownMenuItem(
+                            value: value,
+                            child: Text(
+                              value,
+                              style: const TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            refresh(() => settlement = value);
+                          }
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Supplier return number is generated automatically.',
-                      style: TextStyle(color: green, fontSize: 12),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: notes,
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: 2,
+                        decoration: _decoration('Additional notes'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final items = <SupplierReturnLine>[];
-                    for (final item in uniqueItems.values) {
-                      final quantity = int.tryParse(
-                        quantities[item.productId]?.text.trim() ?? '',
-                      ) ?? 0;
-                      if (quantity <= 0) continue;
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      if (reason.text.trim().isEmpty) {
+                        throw Exception('Enter a return reason.');
+                      }
 
-                      items.add(SupplierReturnLine(
-                        productId: item.productId,
-                        productName: item.productName,
-                        sku: item.sku,
-                        unit: item.unit,
-                        quantity: quantity,
-                        unitCost: item.unitCost,
-                      ));
+                      final items = <SupplierReturnLine>[];
+
+                      for (final item in uniqueItems.values) {
+                        final raw =
+                            quantities[item.productId]?.text.trim() ?? '';
+
+                        if (raw.isEmpty) continue;
+
+                        final quantity = int.tryParse(raw);
+
+                        if (quantity == null || quantity <= 0) {
+                          throw Exception(
+                            'Enter a valid return quantity for ${item.productName}.',
+                          );
+                        }
+
+                        final alreadyReturned =
+                            returned[item.productId] ?? 0;
+                        final remaining =
+                            item.quantity - alreadyReturned;
+
+                        if (quantity > remaining) {
+                          throw Exception(
+                            'Return quantity for ${item.productName} exceeds the remaining purchased quantity.',
+                          );
+                        }
+
+                        items.add(
+                          SupplierReturnLine(
+                            productId: item.productId,
+                            productName: item.productName,
+                            sku: item.sku,
+                            unit: item.unit,
+                            quantity: quantity,
+                            unitCost: item.unitCost,
+                          ),
+                        );
+                      }
+
+                      if (items.isEmpty) {
+                        throw Exception(
+                          'Enter at least one quantity to return.',
+                        );
+                      }
+
+                      await data.createSupplierReturn(
+                        inventory: inventory,
+                        originalPurchaseOrderNumber:
+                            selected.purchaseOrderNumber,
+                        items: items,
+                        reason: reason.text,
+                        settlementType: settlement,
+                        notes: notes.text,
+                      );
+
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, true);
+                      }
+                    } catch (error) {
+                      _message(
+                        context,
+                        error.toString().replaceFirst(
+                          'Exception: ',
+                          '',
+                        ),
+                      );
                     }
-
-                    await data.createSupplierReturn(
-                      inventory: inventory,
-                      originalPurchaseOrderNumber: selected.purchaseOrderNumber,
-                      items: items,
-                      reason: reason.text,
-                      settlementType: settlement,
-                      notes: notes.text,
-                    );
-
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext, true);
-                    }
-                  } catch (e) {
-                    _message(context, e.toString().replaceFirst('Exception: ', ''));
-                  }
-                },
-                child: const Text('Save Return'),
-              ),
-            ],
-          );
-        },
-      ),
+                  },
+                  child: const Text('Save Return'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     reason.dispose();
     notes.dispose();
+
     for (final controller in quantities.values) {
       controller.dispose();
     }
@@ -510,104 +1041,201 @@ class StockScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _adjust(BuildContext context, WidgetRef ref) async {
+  // ============================================================
+  // MANUAL STOCK ADJUSTMENT
+  // ============================================================
+
+  Future<void> _adjust(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final inventory = ref.read(inventoryProvider);
-    if (inventory.products.isEmpty || inventory.branches.isEmpty) {
-      _message(context, 'Add a product and branch first.');
+
+    final products = inventory.products;
+    final branches = inventory.branches.where((b) => b.active).toList();
+
+    if (products.isEmpty || branches.isEmpty) {
+      _message(context, 'Add a product and active branch first.');
       return;
     }
 
     final quantity = TextEditingController();
     final reason = TextEditingController();
-    String productId = inventory.products.first.id;
-    String branchId = inventory.branches.first.id;
+
+    String productId = products.first.id;
+    String branchId = branches.first.id;
     String direction = 'Add';
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          backgroundColor: panel,
-          title: const Text('Manual Stock Adjustment'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: productId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Product'),
-                  items: inventory.products.map((p) => DropdownMenuItem(
-                    value: p.id,
-                    child: Text(p.name),
-                  )).toList(),
-                  onChanged: (v) {
-                    if (v != null) refresh(() => productId = v);
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, refresh) {
+            final current = inventory.getBranchQuantity(
+              productId,
+              branchId,
+            );
+
+            return AlertDialog(
+              backgroundColor: panel,
+              title: const Text(
+                'Manual Stock Adjustment',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: productId,
+                      isExpanded: true,
+                      dropdownColor: panel,
+                      decoration: _decoration('Product'),
+                      items: products.map((product) {
+                        return DropdownMenuItem(
+                          value: product.id,
+                          child: Text(
+                            product.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          refresh(() => productId = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: branchId,
+                      isExpanded: true,
+                      dropdownColor: panel,
+                      decoration: _decoration('Branch'),
+                      items: branches.map((branch) {
+                        return DropdownMenuItem(
+                          value: branch.id,
+                          child: Text(
+                            branch.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          refresh(() => branchId = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: background,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Current branch quantity: $current',
+                        style: const TextStyle(
+                          color: green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: direction,
+                      dropdownColor: panel,
+                      decoration: _decoration('Adjustment type'),
+                      items: ['Add', 'Remove'].map((value) {
+                        return DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          refresh(() => direction = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: quantity,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _decoration('Quantity'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reason,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 2,
+                      decoration: _decoration('Reason *'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, false);
                   },
+                  child: const Text('Cancel'),
                 ),
-                DropdownButtonFormField<String>(
-                  value: branchId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Branch'),
-                  items: inventory.branches.map((b) => DropdownMenuItem(
-                    value: b.id,
-                    child: Text(b.name),
-                  )).toList(),
-                  onChanged: (v) {
-                    if (v != null) refresh(() => branchId = v);
+                ElevatedButton(
+                  onPressed: () {
+                    try {
+                      final amount = int.tryParse(
+                        quantity.text.trim(),
+                      );
+
+                      if (amount == null || amount <= 0) {
+                        throw Exception(
+                          'Enter a quantity greater than zero.',
+                        );
+                      }
+
+                      if (reason.text.trim().isEmpty) {
+                        throw Exception('Enter an adjustment reason.');
+                      }
+
+                      inventory.adjustStock(
+                        productId: productId,
+                        branchId: branchId,
+                        quantity:
+                            direction == 'Add' ? amount : -amount,
+                        reason: reason.text.trim(),
+                      );
+
+                      Navigator.pop(dialogContext, true);
+                    } catch (error) {
+                      _message(
+                        context,
+                        error.toString().replaceFirst(
+                          'Exception: ',
+                          '',
+                        ),
+                      );
+                    }
                   },
-                ),
-                DropdownButtonFormField<String>(
-                  value: direction,
-                  decoration: const InputDecoration(labelText: 'Adjustment type'),
-                  items: ['Add', 'Remove'].map((v) => DropdownMenuItem(
-                    value: v,
-                    child: Text(v),
-                  )).toList(),
-                  onChanged: (v) {
-                    if (v != null) refresh(() => direction = v);
-                  },
-                ),
-                TextField(
-                  controller: quantity,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
-                ),
-                TextField(
-                  controller: reason,
-                  decoration: const InputDecoration(labelText: 'Reason'),
+                  child: const Text('Save Adjustment'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                try {
-                  final amount = int.parse(quantity.text.trim());
-                  if (amount <= 0 || reason.text.trim().isEmpty) {
-                    throw Exception('Enter a quantity and reason.');
-                  }
-                  inventory.adjustStock(
-                    productId: productId,
-                    branchId: branchId,
-                    quantity: direction == 'Add' ? amount : -amount,
-                    reason: reason.text.trim(),
-                  );
-                  Navigator.pop(dialogContext, true);
-                } catch (e) {
-                  _message(context, e.toString().replaceFirst('Exception: ', ''));
-                }
-              },
-              child: const Text('Save Adjustment'),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
 
     quantity.dispose();
@@ -618,313 +1246,667 @@ class StockScreen extends ConsumerWidget {
     }
   }
 
+  // ============================================================
+  // PURCHASE DETAILS
+  // ============================================================
+
   Future<void> _purchaseDetails(
     BuildContext context,
     PurchaseOrderRecord order,
     InventoryData inventory,
   ) async {
-    final branch = inventory.getBranchById(order.branchId)?.name ?? order.branchId;
+    final branch =
+        inventory.getBranchById(order.branchId)?.name ??
+        order.branchId;
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: panel,
-        title: Text(order.purchaseOrderNumber),
-        content: SizedBox(
-          width: 450,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Supplier: ${order.supplierName}'),
-                Text('Supplier invoice: ${order.supplierInvoiceNumber.isEmpty ? 'Not provided' : order.supplierInvoiceNumber}'),
-                Text('Branch: $branch'),
-                Text('Date: ${order.date}'),
-                const Divider(),
-                ...order.items.map((item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.productName),
-                  subtitle: Text('${item.quantity} ${item.unit} × ${item.unitCost.toStringAsFixed(2)}'),
-                  trailing: Text(item.total.toStringAsFixed(2)),
-                )),
-                const Divider(),
-                Text('Subtotal: ${order.subtotal.toStringAsFixed(2)}'),
-                Text('Discount: ${order.discount.toStringAsFixed(2)}'),
-                Text('Tax: ${order.tax.toStringAsFixed(2)}'),
-                Text('Total: ${order.total.toStringAsFixed(2)}'),
-                Text('Paid: ${order.amountPaid.toStringAsFixed(2)}'),
-                Text('Balance: ${order.balanceDue.toStringAsFixed(2)}'),
-                Text('Payment status: ${order.paymentStatus}'),
-                Text('Payment method: ${order.paymentMethod}'),
-                if (order.notes.isNotEmpty) Text('Notes: ${order.notes}'),
-              ],
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: panel,
+          title: Text(
+            order.purchaseOrderNumber,
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _detailRow('Supplier', order.supplierName),
+                  _detailRow('Phone', order.supplierPhone),
+                  _detailRow('Address', order.supplierAddress),
+                  _detailRow(
+                    'Supplier Invoice',
+                    order.supplierInvoiceNumber,
+                  ),
+                  _detailRow('Branch', branch),
+                  _detailRow('Date', _date(order.date)),
+                  _detailRow('Status', order.status),
+                  _detailRow('Payment', order.paymentStatus),
+                  _detailRow('Method', order.paymentMethod),
+                  const Divider(color: borderColor),
+                  const Text(
+                    'Purchased Items',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...order.items.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${item.productName}\n'
+                              '${item.quantity} ${item.unit} × ${_money(item.unitCost)}',
+                              style: const TextStyle(
+                                color: muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _money(item.total),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(color: borderColor),
+                  _detailRow('Subtotal', _money(order.subtotal)),
+                  _detailRow('Discount', _money(order.discount)),
+                  _detailRow('Tax', _money(order.tax)),
+                  _detailRow('Total', _money(order.total)),
+                  _detailRow('Paid', _money(order.amountPaid)),
+                  _detailRow('Balance', _money(order.balanceDue)),
+                  if (order.notes.isNotEmpty)
+                    _detailRow('Notes', order.notes),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await InventoryInvoicePdf.sharePurchaseOrder(order, branchName: branch);
-            },
-            child: const Text('Share PDF'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await InventoryInvoicePdf.printPurchaseOrder(order, branchName: branch);
-            },
-            child: const Text('Print PDF'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  await InventoryInvoicePdf.sharePurchaseOrder(
+                    order,
+                    branchName: branch,
+                  );
+                } catch (error) {
+                  _message(context, 'Could not share PDF: $error');
+                }
+              },
+              child: const Text('Share PDF'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await InventoryInvoicePdf.printPurchaseOrder(
+                    order,
+                    branchName: branch,
+                  );
+                } catch (error) {
+                  _message(context, 'Could not print PDF: $error');
+                }
+              },
+              child: const Text('Print PDF'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
+
+  // ============================================================
+  // SUPPLIER RETURN DETAILS
+  // ============================================================
 
   Future<void> _returnDetails(
     BuildContext context,
     SupplierReturnRecord record,
     InventoryData inventory,
   ) async {
-    final branch = inventory.getBranchById(record.branchId)?.name ?? record.branchId;
+    final branch =
+        inventory.getBranchById(record.branchId)?.name ??
+        record.branchId;
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: panel,
-        title: Text(record.returnNumber),
-        content: SizedBox(
-          width: 450,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Supplier: ${record.supplierName}'),
-                Text('Original purchase: ${record.originalPurchaseOrderNumber}'),
-                Text('Branch: $branch'),
-                Text('Date: ${record.date}'),
-                const Divider(),
-                ...record.items.map((item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.productName),
-                  subtitle: Text('${item.quantity} ${item.unit} × ${item.unitCost.toStringAsFixed(2)}'),
-                  trailing: Text(item.total.toStringAsFixed(2)),
-                )),
-                const Divider(),
-                Text('Total: ${record.total.toStringAsFixed(2)}'),
-                Text('Reason: ${record.reason}'),
-                Text('Settlement: ${record.settlementType}'),
-                if (record.notes.isNotEmpty) Text('Notes: ${record.notes}'),
-              ],
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: panel,
+          title: Text(
+            record.returnNumber,
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _detailRow('Supplier', record.supplierName),
+                  _detailRow('Phone', record.supplierPhone),
+                  _detailRow(
+                    'Original Purchase',
+                    record.originalPurchaseOrderNumber,
+                  ),
+                  _detailRow('Branch', branch),
+                  _detailRow('Date', _date(record.date)),
+                  _detailRow('Reason', record.reason),
+                  _detailRow('Settlement', record.settlementType),
+                  const Divider(color: borderColor),
+                  const Text(
+                    'Returned Items',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...record.items.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${item.productName}\n'
+                              '${item.quantity} ${item.unit} × ${_money(item.unitCost)}',
+                              style: const TextStyle(
+                                color: muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _money(item.total),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(color: borderColor),
+                  _detailRow('Total Units', '${record.totalUnits}'),
+                  _detailRow('Return Total', _money(record.total)),
+                  if (record.notes.isNotEmpty)
+                    _detailRow('Notes', record.notes),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await InventoryInvoicePdf.shareSupplierReturn(record, branchName: branch);
-            },
-            child: const Text('Share PDF'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  await InventoryInvoicePdf.shareSupplierReturn(
+                    record,
+                    branchName: branch,
+                  );
+                } catch (error) {
+                  _message(context, 'Could not share PDF: $error');
+                }
+              },
+              child: const Text('Share PDF'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await InventoryInvoicePdf.printSupplierReturn(
+                    record,
+                    branchName: branch,
+                  );
+                } catch (error) {
+                  _message(context, 'Could not print PDF: $error');
+                }
+              },
+              child: const Text('Print PDF'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 115,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: muted,
+                fontSize: 12,
+              ),
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              await InventoryInvoicePdf.printSupplierReturn(record, branchName: branch);
-            },
-            child: const Text('Print PDF'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _action(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
+  // ============================================================
+  // BRANCH STOCK
+  // ============================================================
+
+  Widget _branchStock(
+    InventoryProduct product,
+    InventoryData inventory,
   ) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: panel,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF26364D)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 27),
-              const SizedBox(height: 10),
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(color: muted, fontSize: 11)),
-            ],
+    return Card(
+      color: panel,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: borderColor),
+      ),
+      child: ExpansionTile(
+        iconColor: blue,
+        collapsedIconColor: muted,
+        title: Text(
+          product.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        subtitle: Text(
+          '${product.sku} • Total: ${product.quantity} ${product.unit}',
+          style: const TextStyle(
+            color: muted,
+            fontSize: 11,
+          ),
+        ),
+        children: inventory.branches.map((branch) {
+          final quantity = inventory.getBranchQuantity(
+            product.id,
+            branch.id,
+          );
+
+          return ListTile(
+            dense: true,
+            title: Text(
+              branch.name,
+              style: const TextStyle(
+                color: muted,
+                fontSize: 12,
+              ),
+            ),
+            trailing: Text(
+              '$quantity ${product.unit}',
+              style: const TextStyle(
+                color: green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _summary(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: panel,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFF26364D)),
+  // ============================================================
+  // RECENT MOVEMENTS
+  // ============================================================
+
+  Widget _movementCard(
+    StockMovement movement,
+    InventoryData inventory,
+  ) {
+    final isIn = movement.type == 'Stock In' ||
+        movement.type == 'Stock Added' ||
+        movement.type == 'Transfer In';
+
+    final isOut = movement.type == 'Stock Out' ||
+        movement.type == 'Stock Removed' ||
+        movement.type == 'Transfer Out';
+
+    final color = isIn
+        ? green
+        : isOut
+            ? orange
+            : blue;
+
+    final branch =
+        inventory.getBranchById(movement.branchId)?.name ??
+        movement.branchId;
+
+    return Card(
+      color: panel,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: borderColor),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Icon(
+            isIn
+                ? Icons.call_received
+                : isOut
+                    ? Icons.call_made
+                    : Icons.swap_horiz,
+            color: color,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(title, style: const TextStyle(color: muted, fontSize: 11)),
-          ],
+        title: Text(
+          movement.productName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
         ),
+        subtitle: Text(
+          '${movement.type} • ${_date(movement.date)}\n'
+          '$branch • ${movement.referenceCode}',
+          style: const TextStyle(
+            color: muted,
+            fontSize: 10,
+          ),
+        ),
+        trailing: Text(
+          '${isOut ? '-' : '+'}${movement.quantity}',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+        isThreeLine: true,
       ),
     );
   }
+
+  // ============================================================
+  // MAIN SCREEN
+  // ============================================================
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inventory = ref.watch(inventoryProvider);
     final purchaseData = ref.watch(inventoryPurchaseProvider);
-    final initialized = ref.watch(inventoryPurchaseInitializationProvider);
+    final initialized =
+        ref.watch(inventoryPurchaseInitializationProvider);
+
+    final lowStock = inventory.products
+        .where((product) =>
+            product.quantity <= product.minimumStock)
+        .length;
+
+    final movements = inventory.movements.reversed.take(30).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF080B12),
+      backgroundColor: background,
       appBar: AppBar(
-        title: const Text('Stock Management'),
-        backgroundColor: const Color(0xFF080B12),
+        backgroundColor: background,
         foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Stock Management',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: initialized.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Could not load purchase records: $error'),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: blue),
         ),
-        data: (_) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Stock Overview',
-              style: TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.bold),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Could not load purchase records.\n$error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.redAccent),
             ),
-            const SizedBox(height: 12),
-            Row(
+          ),
+        ),
+        data: (_) {
+          return RefreshIndicator(
+            color: blue,
+            backgroundColor: panel,
+            onRefresh: () async {
+              await ref
+                  .read(inventoryPurchaseProvider)
+                  .initialize();
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
               children: [
-                _summary('Total stock units', inventory.totalUnitsInStock.toString(), blue),
-                const SizedBox(width: 10),
-                _summary('Products', inventory.products.length.toString(), green),
-              ],
-            ),
-            const SizedBox(height: 22),
-            const Text('Stock Actions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _action('Purchase Order', 'Receive stock', Icons.add_shopping_cart, green, () => _purchase(context, ref)),
-                const SizedBox(width: 10),
-                _action('Supplier Return', 'Return to supplier', Icons.assignment_return, orange, () => _supplierReturn(context, ref)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _action('Manual Adjustment', 'Correct stock quantities', Icons.tune, blue, () => _adjust(context, ref)),
-            const SizedBox(height: 24),
-            const Text('Purchase History', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (purchaseData.purchaseOrders.isEmpty)
-              const Text('No purchase orders yet.', style: TextStyle(color: muted))
-            else
-              ...purchaseData.purchaseOrders.map((order) => Card(
-                color: panel,
-                child: ListTile(
-                  onTap: () => _purchaseDetails(context, order, inventory),
-                  title: Text(order.purchaseOrderNumber, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: Text('${order.supplierName} • ${order.date.day}/${order.date.month}/${order.date.year}\nTotal: ${order.total.toStringAsFixed(2)} • ${order.paymentStatus}', style: const TextStyle(color: muted)),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right, color: blue),
-                ),
-              )),
-            const SizedBox(height: 20),
-            const Text('Supplier Return History', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (purchaseData.supplierReturns.isEmpty)
-              const Text('No supplier returns yet.', style: TextStyle(color: muted))
-            else
-              ...purchaseData.supplierReturns.map((record) => Card(
-                color: panel,
-                child: ListTile(
-                  onTap: () => _returnDetails(context, record, inventory),
-                  title: Text(record.returnNumber, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: Text('${record.supplierName} • Original: ${record.originalPurchaseOrderNumber}\nTotal: ${record.total.toStringAsFixed(2)}', style: const TextStyle(color: muted)),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right, color: blue),
-                ),
-              )),
-            const SizedBox(height: 20),
-            const Text('Branch-wise Stock', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            ...inventory.products.map((product) => Card(
-              color: panel,
-              child: ExpansionTile(
-                title: Text(product.name, style: const TextStyle(color: Colors.white)),
-                subtitle: Text('${product.sku} • Total: ${product.quantity} ${product.unit}', style: const TextStyle(color: muted)),
-                children: inventory.branches.map((branch) => ListTile(
-                  dense: true,
-                  title: Text(branch.name, style: const TextStyle(color: muted)),
-                  trailing: Text(
-                    '${inventory.getBranchQuantity(product.id, branch.id)} ${product.unit}',
-                    style: const TextStyle(color: green, fontWeight: FontWeight.bold),
-                  ),
-                )).toList(),
-              ),
-            )),
-            const SizedBox(height: 24),
-            const Text('Recent Stock Movements', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (inventory.movements.isEmpty)
-              const Text('No stock movements recorded.', style: TextStyle(color: muted))
-            else
-              ...inventory.movements.reversed.take(30).map((movement) => Card(
-                color: panel,
-                child: ListTile(
-                  title: Text(movement.productName, style: const TextStyle(color: Colors.white)),
-                  subtitle: Text('${movement.type} • ${movement.date.day}/${movement.date.month}/${movement.date.year}\n${movement.referenceCode}', style: const TextStyle(color: muted)),
-                  isThreeLine: true,
-                  trailing: Text(
-                    movement.quantity.toString(),
-                    style: const TextStyle(color: blue, fontWeight: FontWeight.bold),
+                const Text(
+                  'Stock Overview',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              )),
-          ],
+                const SizedBox(height: 14),
+
+                // Summary cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: _summaryCard(
+                        'Total stock units',
+                        inventory.totalStock.toString(),
+                        blue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _summaryCard(
+                        'Products',
+                        inventory.products.length.toString(),
+                        green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _summaryCard(
+                        'Low stock products',
+                        lowStock.toString(),
+                        orange,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _summaryCard(
+                        'Out of stock',
+                        inventory.outOfStockCount.toString(),
+                        Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+                _sectionTitle('Stock Actions'),
+
+                // Action cards: Expanded belongs to the Row,
+                // never inside the card builder.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _actionCard(
+                        title: 'Purchase Order',
+                        subtitle: 'Receive stock',
+                        icon: Icons.add_shopping_cart,
+                        color: green,
+                        onTap: () => _purchase(context, ref),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _actionCard(
+                        title: 'Supplier Return',
+                        subtitle: 'Return to supplier',
+                        icon: Icons.assignment_return,
+                        color: orange,
+                        onTap: () => _supplierReturn(context, ref),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _actionCard(
+                  title: 'Manual Adjustment',
+                  subtitle: 'Correct stock quantities',
+                  icon: Icons.tune,
+                  color: blue,
+                  onTap: () => _adjust(context, ref),
+                ),
+
+                const SizedBox(height: 24),
+                _sectionTitle('Purchase History'),
+
+                if (purchaseData.purchaseOrders.isEmpty)
+                  _emptyMessage('No purchase orders recorded yet.')
+                else
+                  ...purchaseData.purchaseOrders.map((order) {
+                    return _historyCard(
+                      title: order.purchaseOrderNumber,
+                      subtitle:
+                          '${order.supplierName} • ${_date(order.date)}\n'
+                          'Payment: ${order.paymentStatus}',
+                      trailing: _money(order.total),
+                      onTap: () => _purchaseDetails(
+                        context,
+                        order,
+                        inventory,
+                      ),
+                    );
+                  }),
+
+                const SizedBox(height: 18),
+                _sectionTitle('Supplier Return History'),
+
+                if (purchaseData.supplierReturns.isEmpty)
+                  _emptyMessage('No supplier returns recorded yet.')
+                else
+                  ...purchaseData.supplierReturns.map((record) {
+                    return _historyCard(
+                      title: record.returnNumber,
+                      subtitle:
+                          '${record.supplierName} • ${_date(record.date)}\n'
+                          'Original: ${record.originalPurchaseOrderNumber}',
+                      trailing: _money(record.total),
+                      onTap: () => _returnDetails(
+                        context,
+                        record,
+                        inventory,
+                      ),
+                    );
+                  }),
+
+                const SizedBox(height: 18),
+                _sectionTitle('Branch-wise Stock'),
+
+                if (inventory.products.isEmpty)
+                  _emptyMessage('No products available.')
+                else
+                  ...inventory.products.map(
+                    (product) => _branchStock(product, inventory),
+                  ),
+
+                const SizedBox(height: 18),
+                _sectionTitle('Recent Stock Movements'),
+
+                if (movements.isEmpty)
+                  _emptyMessage('No stock movements recorded yet.')
+                else
+                  ...movements.map(
+                    (movement) =>
+                        _movementCard(movement, inventory),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _emptyMessage(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: muted,
+          fontSize: 12,
         ),
       ),
     );
   }
 }
 
+// ============================================================
+// PURCHASE LINE INPUT
+// ============================================================
+
 class _PurchaseLineInput {
   _PurchaseLineInput(this.productId);
 
   String productId;
-  final TextEditingController quantity = TextEditingController(text: '1');
-  final TextEditingController cost = TextEditingController(text: '0');
+
+  final TextEditingController quantity =
+      TextEditingController(text: '1');
+
+  final TextEditingController cost =
+      TextEditingController(text: '0');
 
   void dispose() {
     quantity.dispose();
