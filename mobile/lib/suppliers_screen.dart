@@ -1,157 +1,26 @@
 
 import 'package:flutter/material.dart';
-import 'list_tools.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'inventory_suppliers.dart';
 
-class SuppliersScreen extends StatefulWidget {
+class SuppliersScreen extends ConsumerStatefulWidget {
   const SuppliersScreen({super.key});
 
   @override
-  State<SuppliersScreen> createState() => _SuppliersScreenState();
+  ConsumerState<SuppliersScreen> createState() =>
+      _SuppliersScreenState();
 }
 
-class _SuppliersScreenState extends State<SuppliersScreen> {
-  final Color blue = const Color(0xFF5798FF);
-  final Color panel = const Color(0xFF121D2D);
-  final Color muted = const Color(0xFF91A4BE);
+class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
+  static const Color blue = Color(0xFF5798FF);
+  static const Color panel = Color(0xFF121D2D);
+  static const Color muted = Color(0xFF91A4BE);
 
-  final TextEditingController searchController = TextEditingController();
-
-  final List<Map<String, dynamic>> suppliers = [
-    {
-      'name': 'Kathmandu Electronics',
-      'code': 'SUP-001',
-      'contact': 'Ram Sharma',
-      'phone': '9800000001',
-      'email': 'info@kathmanduelectronics.com',
-      'address': 'New Road, Kathmandu',
-      'pan': '123456789',
-      'payment': 'Cash',
-      'active': true,
-    },
-    {
-      'name': 'Pokhara Trading House',
-      'code': 'SUP-002',
-      'contact': 'Sita Thapa',
-      'phone': '9800000002',
-      'email': 'sales@pokharatrading.com',
-      'address': 'Lakeside, Pokhara',
-      'pan': '987654321',
-      'payment': 'Credit 30 Days',
-      'active': true,
-    },
-    {
-      'name': 'Himalayan Supplies',
-      'code': 'SUP-003',
-      'contact': 'Hari Gurung',
-      'phone': '9800000003',
-      'email': 'hello@himalayansupplies.com',
-      'address': 'Lalitpur, Nepal',
-      'pan': '',
-      'payment': 'Credit 15 Days',
-      'active': false,
-    },
-  ];
+  final TextEditingController searchController =
+      TextEditingController();
 
   String searchText = '';
-  String selectedSort = 'name_az';
-  String selectedFilter = 'all';
-
-  final Map<String, String> sortOptions = {
-    'name_az': 'Name: A–Z',
-    'name_za': 'Name: Z–A',
-    'code_az': 'Supplier code: A–Z',
-    'code_za': 'Supplier code: Z–A',
-    'newest': 'Newest first',
-    'oldest': 'Oldest first',
-  };
-
-  final Map<String, String> filterOptions = {
-    'all': 'All suppliers',
-    'active': 'Active suppliers',
-    'inactive': 'Inactive suppliers',
-    'cash': 'Cash payment',
-    'credit15': 'Credit 15 Days',
-    'credit30': 'Credit 30 Days',
-    'credit45': 'Credit 45 Days',
-  };
-
-  List<Map<String, dynamic>> get filteredSuppliers {
-    final query = searchText.trim().toLowerCase();
-
-    final result = suppliers.where((supplier) {
-      final matchesSearch = query.isEmpty ||
-          [
-            supplier['name'],
-            supplier['code'],
-            supplier['contact'],
-            supplier['phone'],
-            supplier['email'],
-            supplier['address'],
-            supplier['pan'],
-            supplier['payment'],
-          ].any((value) =>
-              value.toString().toLowerCase().contains(query));
-
-      final active = supplier['active'] == true;
-      final payment = supplier['payment'].toString();
-
-      bool matchesFilter = true;
-
-      switch (selectedFilter) {
-        case 'active':
-          matchesFilter = active;
-          break;
-        case 'inactive':
-          matchesFilter = !active;
-          break;
-        case 'cash':
-          matchesFilter = payment == 'Cash';
-          break;
-        case 'credit15':
-          matchesFilter = payment == 'Credit 15 Days';
-          break;
-        case 'credit30':
-          matchesFilter = payment == 'Credit 30 Days';
-          break;
-        case 'credit45':
-          matchesFilter = payment == 'Credit 45 Days';
-          break;
-      }
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-
-    switch (selectedSort) {
-      case 'name_az':
-        result.sort((a, b) =>
-            a['name'].toString().toLowerCase().compareTo(
-                b['name'].toString().toLowerCase()));
-        break;
-      case 'name_za':
-        result.sort((a, b) =>
-            b['name'].toString().toLowerCase().compareTo(
-                a['name'].toString().toLowerCase()));
-        break;
-      case 'code_az':
-        result.sort((a, b) =>
-            a['code'].toString().compareTo(b['code'].toString()));
-        break;
-      case 'code_za':
-        result.sort((a, b) =>
-            b['code'].toString().compareTo(a['code'].toString()));
-        break;
-      case 'newest':
-        result.sort((a, b) =>
-            suppliers.indexOf(b).compareTo(suppliers.indexOf(a)));
-        break;
-      case 'oldest':
-        result.sort((a, b) =>
-            suppliers.indexOf(a).compareTo(suppliers.indexOf(b)));
-        break;
-    }
-
-    return result;
-  }
+  String filter = 'all';
 
   @override
   void dispose() {
@@ -159,10 +28,10 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     super.dispose();
   }
 
-  InputDecoration _decoration(String label) {
+  InputDecoration decoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: muted),
+      labelStyle: const TextStyle(color: muted),
       filled: true,
       fillColor: const Color(0xFF080B12),
       border: OutlineInputBorder(
@@ -175,43 +44,29 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: _decoration(label),
+  Future<void> showSupplierDialog({
+    InventorySupplier? supplier,
+  }) async {
+    final editing = supplier != null;
+    final formKey = GlobalKey<FormState>();
+
+    final name = TextEditingController(text: supplier?.name ?? '');
+    final code = TextEditingController(text: supplier?.code ?? '');
+    final contact = TextEditingController(
+      text: supplier?.contactPerson ?? '',
     );
-  }
+    final phone = TextEditingController(text: supplier?.phone ?? '');
+    final email = TextEditingController(text: supplier?.email ?? '');
+    final address = TextEditingController(
+      text: supplier?.address ?? '',
+    );
+    final panVat = TextEditingController(
+      text: supplier?.panVat ?? '',
+    );
 
-  void showSupplierDialog({int? index}) {
-    final isEditing = index != null;
-    final supplier = isEditing ? suppliers[index] : null;
+    String payment = supplier?.paymentTerms ?? 'Cash';
 
-    final nameController =
-        TextEditingController(text: supplier?['name'] ?? '');
-    final codeController =
-        TextEditingController(text: supplier?['code'] ?? '');
-    final contactController =
-        TextEditingController(text: supplier?['contact'] ?? '');
-    final phoneController =
-        TextEditingController(text: supplier?['phone'] ?? '');
-    final emailController =
-        TextEditingController(text: supplier?['email'] ?? '');
-    final addressController =
-        TextEditingController(text: supplier?['address'] ?? '');
-    final panController =
-        TextEditingController(text: supplier?['pan'] ?? '');
-
-    String payment = supplier?['payment'] ?? 'Cash';
-
-    showDialog(
+    final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -219,69 +74,89 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             return AlertDialog(
               backgroundColor: panel,
               title: Text(
-                isEditing ? 'Edit Supplier' : 'Add Supplier',
+                editing ? 'Edit Supplier' : 'Add Supplier',
                 style: const TextStyle(color: Colors.white),
               ),
               content: SizedBox(
                 width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _field(nameController, 'Supplier Name *'),
-                      const SizedBox(height: 12),
-                      _field(codeController, 'Supplier Code *'),
-                      const SizedBox(height: 12),
-                      _field(contactController, 'Contact Person'),
-                      const SizedBox(height: 12),
-                      _field(
-                        phoneController,
-                        'Phone Number *',
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      _field(
-                        emailController,
-                        'Email Address',
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 12),
-                      _field(addressController, 'Address', maxLines: 2),
-                      const SizedBox(height: 12),
-                      _field(panController, 'PAN / VAT Number'),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: payment,
-                        dropdownColor: panel,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _decoration('Payment Terms'),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'Cash', child: Text('Cash')),
-                          DropdownMenuItem(
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _formField(name, 'Supplier Name *'),
+                        const SizedBox(height: 12),
+                        _formField(
+                          code,
+                          editing
+                              ? 'Supplier Code *'
+                              : 'Supplier Code (optional)',
+                        ),
+                        const SizedBox(height: 12),
+                        _formField(contact, 'Contact Person'),
+                        const SizedBox(height: 12),
+                        _formField(
+                          phone,
+                          'Phone Number *',
+                          keyboard: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 12),
+                        _formField(
+                          email,
+                          'Email Address',
+                          keyboard: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 12),
+                        _formField(
+                          address,
+                          'Address',
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 12),
+                        _formField(panVat, 'PAN / VAT Number'),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: payment,
+                          dropdownColor: panel,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: decoration('Payment Terms'),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Cash',
+                              child: Text('Cash'),
+                            ),
+                            DropdownMenuItem(
                               value: 'Credit 15 Days',
-                              child: Text('Credit 15 Days')),
-                          DropdownMenuItem(
+                              child: Text('Credit 15 Days'),
+                            ),
+                            DropdownMenuItem(
                               value: 'Credit 30 Days',
-                              child: Text('Credit 30 Days')),
-                          DropdownMenuItem(
+                              child: Text('Credit 30 Days'),
+                            ),
+                            DropdownMenuItem(
                               value: 'Credit 45 Days',
-                              child: Text('Credit 45 Days')),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => payment = value);
-                          }
-                        },
-                      ),
-                    ],
+                              child: Text('Credit 45 Days'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setDialogState(() => payment = value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text('Cancel', style: TextStyle(color: muted)),
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: muted),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -289,83 +164,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () {
-                    final name = nameController.text.trim();
-                    final code = codeController.text.trim();
-                    final phone = phoneController.text.trim();
-                    final email = emailController.text.trim();
-
-                    if (name.isEmpty || code.isEmpty || phone.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Supplier name, code and phone are required.',
-                          ),
-                        ),
-                      );
-                      return;
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(dialogContext, true);
                     }
-
-                    if (email.isNotEmpty &&
-                        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                            .hasMatch(email)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Enter a valid email address.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    final duplicate = suppliers.indexWhere((item) {
-                      return item['code'].toString().toLowerCase() ==
-                              code.toLowerCase() &&
-                          (!isEditing || item != suppliers[index]);
-                    });
-
-                    if (duplicate != -1) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'This supplier code already exists.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    final newSupplier = {
-                      'name': name,
-                      'code': code,
-                      'contact': contactController.text.trim(),
-                      'phone': phone,
-                      'email': email,
-                      'address': addressController.text.trim(),
-                      'pan': panController.text.trim(),
-                      'payment': payment,
-                      'active':
-                          isEditing ? suppliers[index]['active'] : true,
-                    };
-
-                    setState(() {
-                      if (isEditing) {
-                        suppliers[index] = newSupplier;
-                      } else {
-                        suppliers.add(newSupplier);
-                      }
-                    });
-
-                    Navigator.pop(dialogContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isEditing
-                              ? 'Supplier updated successfully.'
-                              : 'Supplier added successfully.',
-                        ),
-                      ),
-                    );
                   },
-                  child: Text(isEditing ? 'Update' : 'Save Supplier'),
+                  child: Text(editing ? 'Update' : 'Save Supplier'),
                 ),
               ],
             );
@@ -373,9 +176,94 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         );
       },
     );
+
+    if (result == true && mounted) {
+      try {
+        final data = ref.read(inventorySupplierProvider);
+
+        if (editing) {
+          await data.updateSupplier(
+            supplierId: supplier.id,
+            name: name.text,
+            code: code.text,
+            phone: phone.text,
+            contactPerson: contact.text,
+            email: email.text,
+            address: address.text,
+            panVat: panVat.text,
+            paymentTerms: payment,
+          );
+        } else {
+          await data.addSupplier(
+            name: name.text,
+            code: code.text,
+            phone: phone.text,
+            contactPerson: contact.text,
+            email: email.text,
+            address: address.text,
+            panVat: panVat.text,
+            paymentTerms: payment,
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            SnackBar(
+              content: Text(
+                editing
+                    ? 'Supplier updated successfully.'
+                    : 'Supplier saved successfully.',
+              ),
+            ),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        }
+      }
+    }
+
+    name.dispose();
+    code.dispose();
+    contact.dispose();
+    phone.dispose();
+    email.dispose();
+    address.dispose();
+    panVat.dispose();
   }
 
-  Widget _summaryCard(String title, int value, IconData icon) {
+  Widget _formField(
+    TextEditingController controller,
+    String label, {
+    TextInputType keyboard = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboard,
+      style: const TextStyle(color: Colors.white),
+      decoration: decoration(label),
+      validator: (value) {
+        if (label.contains('*') && (value == null || value.trim().isEmpty)) {
+          return 'This field is required.';
+        }
+        if (label == 'Email Address' &&
+            value != null &&
+            value.trim().isNotEmpty &&
+            !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                .hasMatch(value.trim())) {
+          return 'Enter a valid email address.';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget summaryCard(String title, int count, IconData icon) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -387,59 +275,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: blue, size: 22),
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             Text(
-              value.toString(),
+              '$count',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(title, style: TextStyle(color: muted, fontSize: 12)),
+            Text(title, style: const TextStyle(color: muted, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
-  void deleteSupplier(int index) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: panel,
-        title: const Text(
-          'Delete Supplier?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Are you sure you want to delete this supplier?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() => suppliers.removeAt(index));
-              Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Supplier deleted.')),
-              );
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void showSupplierDetails(Map<String, dynamic> supplier) {
+  void showDetails(InventorySupplier supplier) {
     showModalBottomSheet(
       context: context,
       backgroundColor: panel,
@@ -455,19 +307,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: muted,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
                 Text(
-                  supplier['name'],
+                  supplier.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 21,
@@ -475,27 +316,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(supplier['code'], style: TextStyle(color: muted)),
+                Text(supplier.code,
+                    style: const TextStyle(color: muted)),
                 const Divider(height: 28, color: Colors.white12),
-                _detailRow('Contact Person', supplier['contact']),
-                _detailRow('Phone', supplier['phone']),
-                _detailRow('Email', supplier['email']),
-                _detailRow('Address', supplier['address']),
-                _detailRow('PAN / VAT', supplier['pan']),
-                _detailRow('Payment Terms', supplier['payment']),
-                _detailRow(
-                  'Status',
-                  supplier['active'] ? 'Active' : 'Inactive',
-                ),
-                const SizedBox(height: 20),
+                _detail('Contact Person', supplier.contactPerson),
+                _detail('Phone', supplier.phone),
+                _detail('Email', supplier.email),
+                _detail('Address', supplier.address),
+                _detail('PAN / VAT', supplier.panVat),
+                _detail('Payment Terms', supplier.paymentTerms),
+                _detail('Status', supplier.active ? 'Active' : 'Inactive'),
+                const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(sheetContext);
-                      showSupplierDialog(
-                        index: suppliers.indexOf(supplier),
-                      );
+                      showSupplierDialog(supplier: supplier);
                     },
                     icon: const Icon(Icons.edit),
                     label: const Text('Edit Supplier'),
@@ -514,7 +351,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detail(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -522,10 +359,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         children: [
           SizedBox(
             width: 115,
-            child: Text(
-              label,
-              style: TextStyle(color: muted, fontSize: 13),
-            ),
+            child: Text(label,
+                style: const TextStyle(color: muted, fontSize: 13)),
           ),
           Expanded(
             child: Text(
@@ -538,19 +373,32 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
+  Future<void> toggleStatus(InventorySupplier supplier) async {
+    try {
+      await ref.read(inventorySupplierProvider).setSupplierActive(
+            supplier.id,
+            !supplier.active,
+          );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeCount =
-        suppliers.where((supplier) => supplier['active'] == true).length;
-
-    final visibleSuppliers = filteredSuppliers;
+    final initialization = ref.watch(supplierInitializationProvider);
+    final data = ref.watch(inventorySupplierProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B12),
       appBar: AppBar(
         backgroundColor: const Color(0xFF080B12),
         foregroundColor: Colors.white,
-        title: const Text('Suppliers'),
+        title: const Text('Supplier Master'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showSupplierDialog(),
@@ -559,180 +407,155 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Add Supplier'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                _summaryCard(
-                  'Total Suppliers',
-                  suppliers.length,
-                  Icons.local_shipping_outlined,
-                ),
-                const SizedBox(width: 12),
-                _summaryCard(
-                  'Active Suppliers',
-                  activeCount,
-                  Icons.check_circle_outline,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            InventoryListToolbar(
-              searchController: searchController,
-              searchHint: 'Search suppliers...',
-              onSearchChanged: (value) {
-                setState(() => searchText = value);
-              },
-              sortOptions: sortOptions,
-              selectedSort: selectedSort,
-              onSortChanged: (value) {
-                setState(() => selectedSort = value);
-              },
-              filterOptions: filterOptions,
-              selectedFilter: selectedFilter,
-              onFilterChanged: (value) {
-                setState(() => selectedFilter = value);
-              },
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: visibleSuppliers.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No suppliers found.',
-                        style: TextStyle(color: muted),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: visibleSuppliers.length,
-                      itemBuilder: (context, index) {
-                        final supplier = visibleSuppliers[index];
-                        final originalIndex = suppliers.indexOf(supplier);
-                        final isActive = supplier['active'] == true;
-
-                        return InkWell(
-                          onTap: () => showSupplierDetails(supplier),
-                          borderRadius: BorderRadius.circular(14),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              color: panel,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: blue.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    Icons.local_shipping_outlined,
-                                    color: blue,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        supplier['name'],
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        supplier['code'],
-                                        style: TextStyle(
-                                          color: muted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        supplier['phone'],
-                                        style: TextStyle(
-                                          color: muted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        isActive ? 'Active' : 'Inactive',
-                                        style: TextStyle(
-                                          color: isActive
-                                              ? Colors.greenAccent
-                                              : Colors.redAccent,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuButton<String>(
-                                  icon: Icon(Icons.more_vert, color: muted),
-                                  color: panel,
-                                  onSelected: (value) {
-                                    if (value == 'edit') {
-                                      showSupplierDialog(
-                                        index: originalIndex,
-                                      );
-                                    } else if (value == 'toggle') {
-                                      setState(() {
-                                        suppliers[originalIndex]['active'] =
-                                            !isActive;
-                                      });
-                                    } else if (value == 'delete') {
-                                      deleteSupplier(originalIndex);
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text(
-                                        'Edit',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'toggle',
-                                      child: Text(
-                                        isActive ? 'Deactivate' : 'Activate',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text(
-                                        'Delete',
-                                        style: TextStyle(
-                                          color: Colors.redAccent,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+      body: initialization.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: blue),
         ),
-      ),
-    );
-  }
-}
+        error: (error, stack) => Center(
+          child: Text(
+            'Could not load suppliers.\n$error',
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        data: (_) {
+          final all = data.suppliers;
+          final active = data.activeSupplierCount;
+          final inactive = data.inactiveSupplierCount;
+
+          var visible = data.searchSuppliers(searchText);
+
+          if (filter == 'active') {
+            visible = visible.where((e) => e.active).toList();
+          } else if (filter == 'inactive') {
+            visible = visible.where((e) => !e.active).toList();
+          }
+
+          visible.sort((a, b) =>
+              a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    summaryCard(
+                      'Total Suppliers',
+                      all.length,
+                      Icons.local_shipping_outlined,
+                    ),
+                    const SizedBox(width: 10),
+                    summaryCard(
+                      'Active',
+                      active,
+                      Icons.check_circle_outline,
+                    ),
+                    const SizedBox(width: 10),
+                    summaryCard(
+                      'Inactive',
+                      inactive,
+                      Icons.pause_circle_outline,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: searchController,
+                  onChanged: (value) {
+                    setState(() => searchText = value);
+                  },
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Search suppliers...',
+                    hintStyle: const TextStyle(color: muted),
+                    prefixIcon: const Icon(Icons.search, color: muted),
+                    filled: true,
+                    fillColor: panel,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: filter,
+                  dropdownColor: panel,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: decoration('Show suppliers'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'all',
+                      child: Text('All suppliers'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'active',
+                      child: Text('Active suppliers'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'inactive',
+                      child: Text('Inactive suppliers'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => filter = value);
+                  },
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: visible.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No suppliers found.\nTap Add Supplier to create one.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: muted),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: visible.length,
+                          itemBuilder: (context, index) {
+                            final supplier = visible[index];
+
+                            return InkWell(
+                              onTap: () => showDetails(supplier),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: panel,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: blue.withOpacity(0.15),
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.local_shipping_outlined,
+                                        color: blue,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            supplier.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            '${supplier.code} • ${supplier.phone}',
+                 
