@@ -206,6 +206,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         .where((category) => category.active)
         .toList();
 
+    final supplierOptions = ref
+        .read(inventorySupplierProvider)
+        .activeSuppliers
+        .map((supplier) => supplier.name)
+        .toSet()
+        .toList();
+
     if (activeBranches.isEmpty) {
       showMessage('Please create an active branch first.');
       return;
@@ -394,9 +401,32 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
                       _sectionTitle('Supplier Information'),
 
-                      _field(
-                        supplierController,
-                        'Supplier Name',
+                      DropdownButtonFormField<String>(
+                        value: null,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration: _decoration('Select Supplier'),
+                        hint: Text(
+                          supplierOptions.isEmpty
+                              ? 'No active suppliers available'
+                              : 'Choose a supplier',
+                          style: TextStyle(color: muted),
+                        ),
+                        items: supplierOptions.map((name) {
+                          return DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              supplierController.text = value;
+                            });
+                          }
+                        },
                       ),
 
                       const SizedBox(height: 8),
@@ -509,6 +539,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     });
   }
 
+  // PART 2 CONTINUES WITH EDIT PRODUCT.
   // ==========================================================
   // EDIT PRODUCT
   // ==========================================================
@@ -519,6 +550,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final activeCategories = inventory.categories
         .where((category) => category.active)
         .toList();
+
+    final activeSuppliers = ref
+        .read(inventorySupplierProvider)
+        .activeSuppliers;
 
     if (activeCategories.isEmpty) {
       showMessage(
@@ -554,6 +589,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     String unit =
         units.contains(product.unit) ? product.unit : units.first;
+
+    final supplierOptions = <String>{
+      ...activeSuppliers.map((supplier) => supplier.name),
+      if (product.supplier.trim().isNotEmpty)
+        product.supplier.trim(),
+    }.toList();
 
     showDialog(
       context: context,
@@ -682,9 +723,43 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
                       _sectionTitle('Supplier Information'),
 
-                      _field(
-                        supplierController,
-                        'Supplier Name',
+                      DropdownButtonFormField<String>(
+                        value: supplierOptions.contains(
+                          supplierController.text,
+                        )
+                            ? supplierController.text
+                            : null,
+                        dropdownColor: panel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                        decoration: _decoration('Select Supplier'),
+                        hint: Text(
+                          'Choose a supplier',
+                          style: TextStyle(color: muted),
+                        ),
+                        items: supplierOptions.map((name) {
+                          final isInactive =
+                              !activeSuppliers.any(
+                            (supplier) => supplier.name == name,
+                          );
+
+                          return DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(
+                              isInactive
+                                  ? '$name (Inactive / old)'
+                                  : name,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              supplierController.text = value;
+                            });
+                          }
+                        },
                       ),
 
                       const SizedBox(height: 8),
@@ -786,7 +861,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       minimumController.dispose();
       supplierController.dispose();
     });
-  }  // ==========================================================
+  }
+
+  // ==========================================================
   // DELETE PRODUCT
   // ==========================================================
 
@@ -845,18 +922,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }
   }
 
+  // PART 3 CONTINUES WITH PRODUCT DETAILS.
   // ==========================================================
   // PRODUCT DETAILS
   // ==========================================================
 
   void showProductDetails(InventoryProduct product) {
     final inventory = ref.read(inventoryProvider);
-    final branches = inventory.branches;
+    final branches = inventory.branches.where((b) => b.active).toList();
 
     showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: panel,
       isScrollControlled: true,
+      backgroundColor: panel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(22),
@@ -866,6 +944,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.75,
+          minChildSize: 0.55,
           maxChildSize: 0.95,
           builder: (context, scrollController) {
             return ListView(
@@ -882,9 +961,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   product.name,
                   style: const TextStyle(
@@ -893,16 +970,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
                 Text(
                   '${product.sku} • ${product.category}',
                   style: TextStyle(color: muted),
                 ),
-
                 const SizedBox(height: 18),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -914,15 +987,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 13,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -938,57 +1007,43 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     label: const Text('Delete Product'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.redAccent,
-                      side: const BorderSide(
-                        color: Colors.redAccent,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 13,
-                      ),
+                      side: const BorderSide(color: Colors.redAccent),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 22),
-
                 _detailRow('Product Code', product.sku),
                 _detailRow('Category', product.category),
                 _detailRow('Barcode', product.barcode),
                 _detailRow('Description', product.description),
                 _detailRow('Supplier', product.supplier),
                 _detailRow('Unit', product.unit),
-
                 _detailRow(
                   'Cost Price',
                   'Rs. ${product.costPrice.toStringAsFixed(2)}',
                 ),
-
                 _detailRow(
                   'Selling Price',
                   'Rs. ${product.sellingPrice.toStringAsFixed(2)}',
                 ),
-
                 _detailRow(
                   'Profit per Unit',
                   'Rs. ${product.profitPerUnit.toStringAsFixed(2)}',
                 ),
-
                 _detailRow(
                   'Profit Margin',
                   '${product.profitMargin.toStringAsFixed(1)}%',
                 ),
-
                 _detailRow(
                   'Minimum Stock',
                   '${product.minimumStock} ${product.unit}',
                 ),
-
                 _detailRow(
                   'Total Stock',
                   '${product.quantity} ${product.unit}',
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   'Branch-wise Stock',
                   style: TextStyle(
@@ -997,9 +1052,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 ...branches.map((branch) {
                   final quantity =
                       product.branchQuantities[branch.id] ?? 0;
@@ -1012,15 +1065,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
                             branch.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                            ),
+                            style: const TextStyle(color: Colors.white),
                           ),
                         ),
                         Text(
@@ -1070,12 +1120,20 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ],
       ),
     );
-  }  // ==========================================================
+  }
+
+  // ==========================================================
+  // MAIN SCREEN
+  // ==========================================================  // ==========================================================
   // MAIN SCREEN
   // ==========================================================
 
   @override
   Widget build(BuildContext context) {
+    // Load supplier records before the user opens the product form.
+    ref.watch(supplierInitializationProvider);
+    ref.watch(inventorySupplierProvider);
+
     final inventory = ref.watch(inventoryProvider);
 
     final allCategories = inventory.categories;
@@ -1146,21 +1204,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 },
               ),
             ),
-
             SizedBox(
               height: 45,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: filterCategories.length,
                 separatorBuilder: (_, __) =>
                     const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final category = filterCategories[index];
-                  final selected =
-                      selectedCategory == category;
+                  final selected = selectedCategory == category;
 
                   return ChoiceChip(
                     label: Text(category),
@@ -1180,17 +1234,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 },
               ),
             ),
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                20,
-                16,
-                12,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Product Inventory',
@@ -1210,7 +1257,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ],
               ),
             ),
-
             Expanded(
               child: visibleProducts.isEmpty
                   ? Center(
@@ -1220,32 +1266,22 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        90,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
                       itemCount: visibleProducts.length,
                       itemBuilder: (context, index) {
                         final product = visibleProducts[index];
 
                         final lowStock =
-                            product.quantity <=
-                                product.minimumStock;
+                            product.quantity <= product.minimumStock;
 
                         return Card(
                           color: panel,
-                          margin: const EdgeInsets.only(
-                            bottom: 12,
-                          ),
+                          margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: ListTile(
-                            contentPadding:
-                                const EdgeInsets.all(14),
+                            contentPadding: const EdgeInsets.all(14),
                             onTap: () {
                               showProductDetails(product);
                             },
@@ -1254,8 +1290,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               height: 48,
                               decoration: BoxDecoration(
                                 color: blue.withOpacity(0.15),
-                                borderRadius:
-                                    BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 Icons.inventory_2_outlined,
@@ -1270,12 +1305,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               ),
                             ),
                             subtitle: Padding(
-                              padding: const EdgeInsets.only(
-                                top: 7,
-                              ),
+                              padding: const EdgeInsets.only(top: 7),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     '${product.sku} • ${product.category}',
@@ -1284,9 +1316,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 11,
                                     ),
                                   ),
-
                                   const SizedBox(height: 5),
-
                                   Text(
                                     'Cost: Rs. ${product.costPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
@@ -1294,7 +1324,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 11,
                                     ),
                                   ),
-
                                   Text(
                                     'Selling: Rs. ${product.sellingPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
@@ -1303,9 +1332,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                       fontSize: 12,
                                     ),
                                   ),
-
                                   const SizedBox(height: 5),
-
                                   Text(
                                     product.supplier.isEmpty
                                         ? 'Supplier: Not specified'
@@ -1319,10 +1346,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               ),
                             ),
                             trailing: Column(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
                                   '${product.quantity}',
@@ -1332,7 +1357,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-
                                 Text(
                                   product.unit,
                                   style: TextStyle(
@@ -1340,9 +1364,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                     fontSize: 10,
                                   ),
                                 ),
-
                                 const SizedBox(height: 5),
-
                                 Text(
                                   lowStock ? 'Low Stock' : 'In Stock',
                                   style: TextStyle(
