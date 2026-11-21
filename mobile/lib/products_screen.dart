@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'inventory_data.dart';
 import 'code_generator.dart';
 import 'list_tools.dart';
+import 'inventory_suppliers.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
